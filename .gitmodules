@@ -1,0 +1,6 @@
+[submodule "modules/pancake"]
+	path = modules/pancake
+	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pancake.git
+[submodule "modules/falconc"]
+	path = modules/falconc
+	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/falconc.git

@@ -1,0 +1,185 @@
+import os
+print(f'CWD:{os.getcwd()}')
+
+CTG_PREFIX = "ctg."
+READS_FN = config['reads_fn']
+NPROC = config['nproc']
+GENOME_SIZE = config['genome_size']
+COVERAGE = config['coverage']
+BLOCK_SIZE = config['block_size']
+OVL_OPT = config['ovl_opt']
+OVL_FLANK_GRACE = config['ovl_flank_grace']
+OVL_MIN_IDT = config['ovl_min_idt']
+OVL_MIN_LEN = config['ovl_min_len']
+OVL_FILTER_OPT = config['ovl_filter_opt']
+
+shell.prefix("set -vxeu -o pipefail; ")
+print(config)
+
+rule generate_config:
+    output:
+        config = "generate_config/config.sh"
+    input:
+        # Reads are not really used here, but just used to run the workflow
+        # when they become available.
+        reads_fn = READS_FN,
+    params:
+        genome_size = GENOME_SIZE,
+        coverage = COVERAGE,
+        block_size = BLOCK_SIZE,
+        ovl_opt = OVL_OPT,
+        ovl_flank_grace = OVL_FLANK_GRACE,
+        ovl_min_idt = OVL_MIN_IDT,
+        ovl_min_len = OVL_MIN_LEN,
+        ovl_filter_opt = OVL_FILTER_OPT,
+    shell: """
+        mkdir -p generate_config
+        cd generate_config
+        rel=..
+
+        params_genome_size="{params.genome_size}" \
+        params_coverage="{params.coverage}" \
+        params_block_size="{params.block_size}" \
+        params_ovl_opt="{params.ovl_opt}" \
+        params_ovl_flank_grace="{params.ovl_flank_grace}" \
+        params_ovl_min_idt="{params.ovl_min_idt}" \
+        params_ovl_min_len="{params.ovl_min_len}" \
+        params_ovl_filter_opt="{params.ovl_filter_opt}" \
+            time platinum-task generate_config_ccs
+    """
+
+rule build_db:
+    output:
+        seqdb = "build_db/reads.seqdb",
+        seeddb = "build_db/reads.seeddb",
+        seqdb_seqs = "build_db/reads.seqdb.0.seq",
+        seeddb_seeds = "build_db/reads.seeddb.0.seeds",
+    input:
+        reads_fn = READS_FN,
+        config_sh_fn = rules.generate_config.output.config,
+    shell: """
+        wd=$(dirname {output.seqdb})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_reads_fn="{input.reads_fn}" \
+        params_db_prefix="reads" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time platinum-task build_db
+    """
+
+checkpoint ovl_prepare:
+    output:
+        blockdir = directory('ovl_prepare/block_ids')
+    input:
+        seqdb = rules.build_db.output.seqdb,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        output_blocks=./blocks \
+        input_db="$rel/{input.seqdb}" \
+            time platinum-task ovl_prepare
+    """
+
+def gathered_m4(wildcards):
+    checkpoint_output = checkpoints.ovl_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids = glob_wildcards(os.path.join(checkpoint_output, "{block_id}.txt")).block_id
+    return expand("ovl_asym_run/{block_id}/ovl.flipped.sorted.dovetail.m4",
+            block_id=block_ids)
+
+rule ovl_asym_run:
+    output:
+        out_m4 = "ovl_asym_run/{block_id}/ovl.m4",
+        out_filtered_m4 = "ovl_asym_run/{block_id}/ovl.flipped.sorted.dovetail.m4",
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        seeddb = rules.build_db.output.seeddb,
+        seqdb_seqs = rules.build_db.output.seqdb_seqs,
+        seeddb_seeds = rules.build_db.output.seeddb_seeds,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        echo "block_id={wildcards.block_id}"
+        wd=$(dirname {output.out_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        # mkdir -p 'ovl_asym_run/{wildcards.block_id}'
+        # cd 'ovl_erc_run/{wildcards.block_id}'
+        # rel=../..
+
+        input_seqdb="$rel/{input.seqdb}" \
+        params_block_id={wildcards.block_id} \
+        params_db_prefix=reads \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time platinum-task ovl_asym_run
+    """
+
+rule ovl_asym_merge:
+    output:
+        gathered_m4 = "ovl_asym_merge/reads.ovl",
+    input:
+        fns = gathered_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.gathered_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        output_ovl="reads.ovl" \
+        params_num_threads="{params.num_threads}" \
+        params_db_prefix="reads" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time platinum-task ovl_asym_merge
+    """
+
+rule assemble:
+    output:
+        p_ctg_fa = "assemble/p_ctg.fasta",
+        a_ctg_fa = "assemble/a_ctg.fasta",
+        p_ctg_tiling_path = "assemble/p_ctg_tiling_path",
+        a_ctg_tiling_path = "assemble/a_ctg_tiling_path",
+#        asm_gfa = "assemble/asm.gfa",
+#        sg_gfa = "assemble/sg.gfa",
+#        contig_gfa2 = "assemble/contig.gfa2",
+        circular_contigs = "assemble/circular_contigs.csv",
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        m4 = rules.ovl_asym_merge.output.gathered_m4,
+        reads = READS_FN,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        ctg_prefix = CTG_PREFIX,
+    shell: """
+        wd=$(dirname {output.p_ctg_fa})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_seqdb="$rel/{input.seqdb}" \
+        input_m4="$rel/{input.m4}" \
+        input_reads="{input.reads}" \
+        params_ctg_prefix={params.ctg_prefix} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time platinum-task assemble
+    """
+
+rule finish:
+    input:
+        rules.assemble.output.p_ctg_fa,

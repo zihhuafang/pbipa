@@ -88,13 +88,13 @@ checkpoint ovl_prepare:
 def gathered_m4(wildcards):
     checkpoint_output = checkpoints.ovl_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
     block_ids = glob_wildcards(os.path.join(checkpoint_output, "{block_id}.txt")).block_id
-    return expand("ovl_asym_run/{block_id}/ovl.flipped.sorted.dovetail.m4",
+    return expand("ovl_asym_run/{block_id}/ovl.sorted.m4",
             block_id=block_ids)
 
 rule ovl_asym_run:
     output:
         out_m4 = "ovl_asym_run/{block_id}/ovl.m4",
-        out_filtered_m4 = "ovl_asym_run/{block_id}/ovl.flipped.sorted.dovetail.m4",
+        out_filtered_m4 = "ovl_asym_run/{block_id}/ovl.sorted.m4",
     input:
         seqdb = rules.build_db.output.seqdb,
         seeddb = rules.build_db.output.seeddb,

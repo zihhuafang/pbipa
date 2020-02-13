@@ -141,7 +141,7 @@ function assemble {
     python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.filtered.m4 >| fc_ovlp_to_graph.log
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
-    python3 -m ipa.mains.graph_to_contig --seqdb-fn ${input_seqdb}
+    python3 ${PLATINUM_WORKSPACE}/scripts/graph_to_contig.py --seqdb-fn ${input_seqdb}
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 

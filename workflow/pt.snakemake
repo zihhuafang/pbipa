@@ -7,6 +7,8 @@ NPROC = config['nproc']
 GENOME_SIZE = config['genome_size']
 COVERAGE = config['coverage']
 BLOCK_SIZE = config['block_size']
+SEQDB_OPT = config['seqdb_opt']
+SEEDDB_OPT = config['seeddb_opt']
 OVL_OPT = config['ovl_opt']
 OVL_FLANK_GRACE = config['ovl_flank_grace']
 OVL_MIN_IDT = config['ovl_min_idt']
@@ -27,6 +29,8 @@ rule generate_config:
         genome_size = GENOME_SIZE,
         coverage = COVERAGE,
         block_size = BLOCK_SIZE,
+        seqdb_opt = SEQDB_OPT,
+        seeddb_opt = SEEDDB_OPT,
         ovl_opt = OVL_OPT,
         ovl_flank_grace = OVL_FLANK_GRACE,
         ovl_min_idt = OVL_MIN_IDT,
@@ -40,6 +44,8 @@ rule generate_config:
         params_genome_size="{params.genome_size}" \
         params_coverage="{params.coverage}" \
         params_block_size="{params.block_size}" \
+        params_seqdb_opt="{params.seqdb_opt}" \
+        params_seeddb_opt="{params.seeddb_opt}" \
         params_ovl_opt="{params.ovl_opt}" \
         params_ovl_flank_grace="{params.ovl_flank_grace}" \
         params_ovl_min_idt="{params.ovl_min_idt}" \

@@ -29,6 +29,8 @@ function generate_config_ccs {
     echo "genome_size=${params_genome_size}" > config.sh
     echo "coverage=${params_coverage}" >> config.sh
     echo "block_size=${params_block_size}" >> config.sh
+    echo "seqdb_opt='${params_seqdb_opt}'" >> config.sh
+    echo "seeddb_opt='${params_seeddb_opt}'" >> config.sh
     echo "ovl_opt_erc='${params_ovl_opt}'" >> config.sh
     echo "ovl_flank_grace=${params_ovl_flank_grace}" >> config.sh
     echo "ovl_min_idt=${params_ovl_min_idt}" >> config.sh
@@ -46,8 +48,8 @@ function build_db {
 
     helper_load_config ${params_config_sh_fn}
     local params_block_size=${block_size}
-    /usr/bin/time pancake seqdb --compression 0 --block-size ${block_size} ${params_db_prefix} ${input_reads_fn}
-    /usr/bin/time pancake seeddb -k 30 -w 80 ${params_db_prefix}.seqdb ${params_db_prefix}
+    /usr/bin/time pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+    /usr/bin/time pancake seeddb -k 30 -w 80 --space 0 ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 }
 
 function ovl_prepare {

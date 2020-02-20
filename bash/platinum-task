@@ -49,7 +49,7 @@ function build_db {
     helper_load_config ${params_config_sh_fn}
     local params_block_size=${block_size}
     /usr/bin/time pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
-    /usr/bin/time pancake seeddb -k 30 -w 80 --space 0 ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+    /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 }
 
 function ovl_prepare {

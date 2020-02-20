@@ -5,7 +5,7 @@
     'coverage': 0,
     'block_size': 50,
     'seqdb_opt': '--compression 0',
-    'seeddb_opt': '-k 30 -w 80 -s 0',
+    'seeddb_opt': '-k 32 -w 80 --space 2',
     'ovl_opt': '',
     'ovl_flank_grace': 0,
     'ovl_min_idt': 98,

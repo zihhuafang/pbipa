@@ -51,7 +51,7 @@ rule generate_config:
         params_ovl_min_idt="{params.ovl_min_idt}" \
         params_ovl_min_len="{params.ovl_min_len}" \
         params_ovl_filter_opt="{params.ovl_filter_opt}" \
-            time platinum-task generate_config_ccs
+            time ipa2-task generate_config_ccs
     """
 
 rule build_db:
@@ -72,7 +72,7 @@ rule build_db:
         input_reads_fn="{input.reads_fn}" \
         params_db_prefix="reads" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
-            time platinum-task build_db
+            time ipa2-task build_db
     """
 
 checkpoint ovl_prepare:
@@ -88,7 +88,7 @@ checkpoint ovl_prepare:
 
         output_blocks=./blocks \
         input_db="$rel/{input.seqdb}" \
-            time platinum-task ovl_prepare
+            time ipa2-task ovl_prepare
     """
 
 def gathered_m4(wildcards):
@@ -125,7 +125,7 @@ rule ovl_asym_run:
         params_db_prefix=reads \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
-            time platinum-task ovl_asym_run
+            time ipa2-task ovl_asym_run
     """
 
 rule ovl_asym_merge:
@@ -152,7 +152,7 @@ rule ovl_asym_merge:
         params_num_threads="{params.num_threads}" \
         params_db_prefix="reads" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
-            time platinum-task ovl_asym_merge
+            time ipa2-task ovl_asym_merge
     """
 
 rule assemble:
@@ -183,7 +183,7 @@ rule assemble:
         input_reads="{input.reads}" \
         params_ctg_prefix={params.ctg_prefix} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
-            time platinum-task assemble
+            time ipa2-task assemble
     """
 
 rule finish:

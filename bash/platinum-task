@@ -48,7 +48,11 @@ function build_db {
 
     helper_load_config ${params_config_sh_fn}
     local params_block_size=${block_size}
-    /usr/bin/time pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
+    pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seeddb.memtime \
     /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 }
 
@@ -85,10 +89,11 @@ function ovl_asym_run {
 
     local local_db_prefix=$(dirname ${input_seqdb})/${params_db_prefix}
     local last_block=$((params_block_id + 1))
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_run.pancake.memtime \
+
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.pancake.memtime \
     pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev --write-ids ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
     
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_run.sort.memtime \
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
 }
 
@@ -109,12 +114,12 @@ function ovl_asym_merge {
     touch slept
 
     # Merge sort.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_merge.mergesort.memtime \
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.mergesort.memtime \
     sort -k1,1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
     echo ovl.merged.m4 > ovl.merged.fofn
 
     # Filter.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_merge.m4filt.memtime \
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
     falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.merged.fofn --output-fn ${output_ovl} ${params_ovlp_filter_opt} --filter-log m4-readfilt.log
 }
 
@@ -152,7 +157,8 @@ function assemble {
         pwd
         samtools faidx p_ctg.fasta  # for oric later
         (grep ">" p_ctg.fasta | grep "ctg_circular" | cut -d ' ' -f 1 | tr -d ">" > circular_contigs.csv) || touch circular_contigs.csv
-        falconc stats-assembly --fasta p_ctg.fasta >| p_ctg.fasta.stats
+        ### The following line crashed in one example, so I removed it:
+        # falconc stats-assembly --fasta p_ctg.fasta >| p_ctg.fasta.stats
     else
         ls -larth
         touch circular_contigs.csv
@@ -171,6 +177,7 @@ function assemble {
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tph.memtime \
     python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
 
+    ### The following lines are commented out because they take plenty of time to run.
     # Collect all info needed to format the GFA-1 and GFA-2 representations of
     # the assembly graphs.
 #    time python3 -m falcon_kit.mains.collect_pread_gfa >| asm.gfa.json

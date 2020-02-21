@@ -3,7 +3,7 @@
     'nproc': 8,
     'genome_size': 0,
     'coverage': 0,
-    'block_size': 50,
+    'block_size': 2048,
     'seqdb_opt': '--compression 0',
     'seeddb_opt': '-k 32 -w 80 --space 2',
     'ovl_opt': '',

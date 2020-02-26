@@ -155,6 +155,89 @@ rule ovl_asym_merge:
             time ipa2-task ovl_asym_merge
     """
 
+checkpoint phasing_prepare:
+    output:
+        blockdir = directory('phasing_prepare/piles')
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        m4 = rules.ovl_asym_merge.output.gathered_m4
+    params:
+        num_blocks = NPROC,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        polyphase split --nFiles {params.num_blocks} chunk $rel/{input.m4}
+
+        # output_blocks=./blocks \
+        # input_db="$rel/{input.seqdb}" \
+        #    time ipa2-task ovl_prepare
+    """
+
+def gathered_prepared_phasing_m4(wildcards):
+    checkpoint_output_ph = checkpoints.phasing_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids_phasing = glob_wildcards(os.path.join(checkpoint_output_ph, "chunk.{block_id_ph}.m4")).block_id_ph
+    return expand("phasing_run/{block_id_ph}/ovl.phased.m4",
+            block_id_ph=block_ids_phasing)
+
+rule phasing_run:
+    output:
+        out_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4",
+    input:
+        blockdir = rules.phasing_prepare.output.blockdir
+        # in_m4 = "{rules.phasing_prepare.output.blockdir}/chunk.{block_id_ph}.m4"
+        # seqdb = rules.build_db.output.seqdb,
+        # seeddb = rules.build_db.output.seeddb,
+        # seqdb_seqs = rules.build_db.output.seqdb_seqs,
+        # seeddb_seeds = rules.build_db.output.seeddb_seeds,
+        # config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+        in_fasta = READS_FN,
+    shell: """
+        echo "block_id_ph={wildcards.block_id_ph}"
+        wd=$(dirname {output.out_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        polyphase phase --alias {params.in_fasta} $rel/{input.blockdir}/chunk.{wildcards.block_id_ph}.m4 ovl.scraps.m4 > ovl.phased.m4
+
+# polyphase phase --alias  HiFi_reads.fasta chunk.6.m4   chunk.6.scraps.m4    > chunk.6.keep.m4
+# polyphase  symmetrical all_scraps.m4 all_keepers.m4  > all_keepers.recip.m4
+
+    """
+
+rule phasing_merge:
+    output:
+        gathered_m4 = "phasing_merge/reads.m4",
+    input:
+        fns = gathered_prepared_phasing_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.gathered_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+        cat merged.fofn | xargs cat > reads.m4
+
+#        input_fofn=./merged.fofn \
+#        output_ovl="reads.ovl" \
+#        params_num_threads="{params.num_threads}" \
+#        params_db_prefix="reads" \
+#        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+#            time ipa2-task ovl_asym_merge
+    """
+
 rule assemble:
     output:
         p_ctg_fa = "assemble/p_ctg.fasta",
@@ -167,7 +250,7 @@ rule assemble:
         circular_contigs = "assemble/circular_contigs.csv",
     input:
         seqdb = rules.build_db.output.seqdb,
-        m4 = rules.ovl_asym_merge.output.gathered_m4,
+        m4 = rules.phasing_merge.output.gathered_m4,
         reads = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
     params:

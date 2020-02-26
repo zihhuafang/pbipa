@@ -100,6 +100,8 @@ function ovl_asym_run {
 function ovl_asym_merge {
     helper_load_config ${params_config_sh_fn}
     local params_ovlp_filter_opt=${ovl_filter_opt}
+    local params_ovlp_min_idt=${ovl_min_idt}
+    local params_ovlp_min_len=${ovl_min_len}
 
     # These are explicit inputs:
     #   params_num_threads
@@ -120,15 +122,16 @@ function ovl_asym_merge {
 
     # Filter.
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
-    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.merged.fofn --output-fn ${output_ovl} ${params_ovlp_filter_opt} --filter-log m4-readfilt.log
+    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.merged.fofn --output-fn ovl.merged.filt1.m4 ${params_ovlp_filter_opt} --filter-log m4-readfilt.log
+
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
+    falconc m4filt-contained --min-idt ${params_ovlp_min_idt} --min-len ${params_ovlp_min_len} --in ovl.merged.filt1.m4 --out ${output_ovl}
 }
 
 function assemble {
     set -o
 
     helper_load_config ${params_config_sh_fn}
-    local params_ovlp_min_idt=${ovl_min_idt}
-    local params_ovlp_min_len=${ovl_min_len}
 
     # These are explicit inputs:
     #   params_ctg_prefix
@@ -141,11 +144,8 @@ function assemble {
     export PYTHONHASHSEED=2147483647
 
     # Run the assembly.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.m4filtcontained.memtime \
-    falconc m4filt-contained --min-idt ${params_ovlp_min_idt} --min-len ${params_ovlp_min_len} --in preads.m4 --out preads.filtered.m4
-
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
-    python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.filtered.m4 >| fc_ovlp_to_graph.log
+    python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
     python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py --seqdb-fn ${input_seqdb}

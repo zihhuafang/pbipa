@@ -128,6 +128,44 @@ function ovl_asym_merge {
     falconc m4filt-contained --min-idt ${params_ovlp_min_idt} --min-len ${params_ovlp_min_len} --in ovl.merged.filt1.m4 --out ${output_ovl}
 }
 
+function phasing_prepare {
+    # Input:
+    #   input_m4
+    #   params_num_blocks
+    # Output:
+    #   *.m4 in cwd
+    #   ${output_blocks} (same info in 1 file)
+
+    polyphase split --nFiles ${params_num_blocks} chunk ${input_m4}
+
+    sleep 1
+    touch slept
+}
+
+function phasing_run {
+    # These are explicit inputs:
+    #   input_fasta
+    #   input_m4
+    #   output_keep_m4
+    #   output_scraps_m4
+    #   params_num_threads
+
+    polyphase phase --alias ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+}
+
+function phasing_merge {
+    # These are explicit inputs and outputs:
+    #   input_keep_fofn
+    #   input_scraps_fofn
+    #   output_m4
+    #   params_num_threads
+
+    cat ${input_keep_fofn} | xargs cat > all.keep.m4
+    cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
+
+    polyphase symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
+}
+
 function assemble {
     set -o
 
@@ -226,6 +264,9 @@ case $1 in
   |ovl_prepare \
   |ovl_asym_run \
   |ovl_asym_merge \
+  |phasing_prepare \
+  |phasing_run \
+  |phasing_merge \
   |assemble \
 )
     set -vexu -o pipefail

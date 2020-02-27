@@ -4,3 +4,6 @@
 [submodule "modules/falconc"]
 	path = modules/falconc
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/falconc.git
+[submodule "modules/polyphase"]
+	path = modules/polyphase
+	url = ssh://git@bitbucket.nanofluidics.com:7999/~zkronenberg/polyphase.git

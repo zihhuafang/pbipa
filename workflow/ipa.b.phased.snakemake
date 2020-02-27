@@ -1,0 +1,273 @@
+import os
+print(f'CWD:{os.getcwd()}')
+
+CTG_PREFIX = "ctg."
+READS_FN = config['reads_fn']
+NPROC = config['nproc']
+GENOME_SIZE = config['genome_size']
+COVERAGE = config['coverage']
+BLOCK_SIZE = config['block_size']
+SEQDB_OPT = config['seqdb_opt']
+SEEDDB_OPT = config['seeddb_opt']
+OVL_OPT = config['ovl_opt']
+OVL_FLANK_GRACE = config['ovl_flank_grace']
+OVL_MIN_IDT = config['ovl_min_idt']
+OVL_MIN_LEN = config['ovl_min_len']
+OVL_FILTER_OPT = config['ovl_filter_opt']
+
+shell.prefix("set -vxeu -o pipefail; ")
+print(config)
+
+rule generate_config:
+    output:
+        config = "generate_config/config.sh"
+    input:
+        # Reads are not really used here, but just used to run the workflow
+        # when they become available.
+        reads_fn = READS_FN,
+    params:
+        genome_size = GENOME_SIZE,
+        coverage = COVERAGE,
+        block_size = BLOCK_SIZE,
+        seqdb_opt = SEQDB_OPT,
+        seeddb_opt = SEEDDB_OPT,
+        ovl_opt = OVL_OPT,
+        ovl_flank_grace = OVL_FLANK_GRACE,
+        ovl_min_idt = OVL_MIN_IDT,
+        ovl_min_len = OVL_MIN_LEN,
+        ovl_filter_opt = OVL_FILTER_OPT,
+    shell: """
+        mkdir -p generate_config
+        cd generate_config
+        rel=..
+
+        params_genome_size="{params.genome_size}" \
+        params_coverage="{params.coverage}" \
+        params_block_size="{params.block_size}" \
+        params_seqdb_opt="{params.seqdb_opt}" \
+        params_seeddb_opt="{params.seeddb_opt}" \
+        params_ovl_opt="{params.ovl_opt}" \
+        params_ovl_flank_grace="{params.ovl_flank_grace}" \
+        params_ovl_min_idt="{params.ovl_min_idt}" \
+        params_ovl_min_len="{params.ovl_min_len}" \
+        params_ovl_filter_opt="{params.ovl_filter_opt}" \
+            time ipa2-task generate_config_ccs
+    """
+
+rule build_db:
+    output:
+        seqdb = "build_db/reads.seqdb",
+        seeddb = "build_db/reads.seeddb",
+        seqdb_seqs = "build_db/reads.seqdb.0.seq",
+        seeddb_seeds = "build_db/reads.seeddb.0.seeds",
+    input:
+        reads_fn = READS_FN,
+        config_sh_fn = rules.generate_config.output.config,
+    shell: """
+        wd=$(dirname {output.seqdb})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_reads_fn="{input.reads_fn}" \
+        params_db_prefix="reads" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task build_db
+    """
+
+checkpoint ovl_prepare:
+    output:
+        blockdir = directory('ovl_prepare/block_ids')
+    input:
+        seqdb = rules.build_db.output.seqdb,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        output_blocks=./blocks \
+        input_db="$rel/{input.seqdb}" \
+            time ipa2-task ovl_prepare
+    """
+
+def gathered_m4(wildcards):
+    checkpoint_output = checkpoints.ovl_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids = glob_wildcards(os.path.join(checkpoint_output, "{block_id}.txt")).block_id
+    return expand("ovl_asym_run/{block_id}/ovl.sorted.m4",
+            block_id=block_ids)
+
+rule ovl_asym_run:
+    output:
+        out_m4 = "ovl_asym_run/{block_id}/ovl.m4",
+        out_filtered_m4 = "ovl_asym_run/{block_id}/ovl.sorted.m4",
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        seeddb = rules.build_db.output.seeddb,
+        seqdb_seqs = rules.build_db.output.seqdb_seqs,
+        seeddb_seeds = rules.build_db.output.seeddb_seeds,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        echo "block_id={wildcards.block_id}"
+        wd=$(dirname {output.out_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        # mkdir -p 'ovl_asym_run/{wildcards.block_id}'
+        # cd 'ovl_erc_run/{wildcards.block_id}'
+        # rel=../..
+
+        input_seqdb="$rel/{input.seqdb}" \
+        params_block_id={wildcards.block_id} \
+        params_db_prefix=reads \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task ovl_asym_run
+    """
+
+rule ovl_asym_merge:
+    output:
+        gathered_m4 = "ovl_asym_merge/reads.ovl",
+    input:
+        fns = gathered_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.gathered_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        output_ovl="reads.ovl" \
+        params_num_threads="{params.num_threads}" \
+        params_db_prefix="reads" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task ovl_asym_merge
+    """
+
+checkpoint phasing_prepare:
+    output:
+        blockdir = directory('phasing_prepare/piles')
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        m4 = rules.ovl_asym_merge.output.gathered_m4
+    params:
+        num_blocks = NPROC,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        output_blocks=./piles \
+        params_num_blocks={params.num_blocks} \
+        input_m4="$rel/{input.m4}" \
+            time ipa2-task phasing_prepare
+    """
+
+def gathered_prepared_phasing_m4(wildcards):
+    checkpoint_output_ph = checkpoints.phasing_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids_phasing = glob_wildcards(os.path.join(checkpoint_output_ph, "chunk.{block_id_ph}.m4")).block_id_ph
+    return expand("phasing_run/{block_id_ph}/ovl.phased.m4",
+            block_id_ph=block_ids_phasing)
+
+rule phasing_run:
+    output:
+        out_keep_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4",
+        out_scraps_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4.scraps",
+    input:
+        blockdir = rules.phasing_prepare.output.blockdir
+    params:
+        num_threads = NPROC,
+        in_fasta = READS_FN,
+    shell: """
+        echo "block_id_ph={wildcards.block_id_ph}"
+        wd=$(dirname {output.out_keep_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        input_fasta="{params.in_fasta}" \
+        input_m4="$rel/{input.blockdir}/chunk.{wildcards.block_id_ph}.m4" \
+        output_keep_m4=$(basename {output.out_keep_m4}) \
+        output_scraps_m4=$(basename {output.out_scraps_m4}) \
+        params_num_threads={params.num_threads} \
+            time ipa2-task phasing_run
+
+    """
+
+rule phasing_merge:
+    output:
+        gathered_m4 = "phasing_merge/ovl.phased.m4",
+    input:
+        fns = gathered_prepared_phasing_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.gathered_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # Collect all overlap paths to keep.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.keep.fofn
+
+        # Collect all scraps paths.
+        for fn in {input.fns}; do
+            echo $rel/$fn.scraps
+        done >| ./merged.scraps.fofn
+
+        input_keep_fofn="./merged.keep.fofn" \
+        input_scraps_fofn="./merged.scraps.fofn" \
+        output_m4="ovl.phased.m4" \
+        params_num_threads={params.num_threads} \
+            time ipa2-task phasing_merge
+    """
+
+rule assemble:
+    output:
+        p_ctg_fa = "assemble/p_ctg.fasta",
+        a_ctg_fa = "assemble/a_ctg.fasta",
+        p_ctg_tiling_path = "assemble/p_ctg_tiling_path",
+        a_ctg_tiling_path = "assemble/a_ctg_tiling_path",
+#        asm_gfa = "assemble/asm.gfa",
+#        sg_gfa = "assemble/sg.gfa",
+#        contig_gfa2 = "assemble/contig.gfa2",
+        circular_contigs = "assemble/circular_contigs.csv",
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        m4 = rules.phasing_merge.output.gathered_m4,
+        reads = READS_FN,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        ctg_prefix = CTG_PREFIX,
+    shell: """
+        wd=$(dirname {output.p_ctg_fa})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_seqdb="$rel/{input.seqdb}" \
+        input_m4="$rel/{input.m4}" \
+        input_reads="{input.reads}" \
+        params_ctg_prefix={params.ctg_prefix} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task assemble
+    """
+
+rule finish:
+    input:
+        rules.assemble.output.p_ctg_fa,

@@ -168,7 +168,9 @@ function assemble {
     #   params_config_sh_fn
 
     ln -sf ${input_m4} preads.m4
-    ln -sf ${input_reads} preads4falcon.fasta
+    ln -sf ${input_reads}
+
+    preads4falcon_bn=$(basename ${input_reads})
 
     # Make ovlp_to_graph reproducible.
     export PYTHONHASHSEED=2147483647
@@ -178,7 +180,7 @@ function assemble {
     python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
-    python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py --seqdb-fn ${input_seqdb}
+    python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py --seqdb-fn ${input_seqdb} --preads-fasta-fn ${preads4falcon_bn}
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 

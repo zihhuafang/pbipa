@@ -1,5 +1,7 @@
 import os
-print(f'CWD:{os.getcwd()}')
+print(f'CWD:{os.getcwd()}\n')
+
+CWD = os.getcwd()
 
 CTG_PREFIX = "ctg."
 READS_FN = config['reads_fn']
@@ -14,6 +16,9 @@ OVL_FLANK_GRACE = config['ovl_flank_grace']
 OVL_MIN_IDT = config['ovl_min_idt']
 OVL_MIN_LEN = config['ovl_min_len']
 OVL_FILTER_OPT = config['ovl_filter_opt']
+
+if not os.path.isabs(READS_FN):
+    READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
 
 shell.prefix("set -vxeu -o pipefail; ")
 print(config)

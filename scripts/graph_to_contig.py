@@ -21,7 +21,6 @@ import argparse
 import logging
 import sys
 import networkx as nx
-from falcon_kit.FastaReader import open_fasta_reader
 from falcon_kit.io import open_progress
 
 RCMAP = dict(list(zip("ACGTacgtNn-", "TGCAtgcaNn-")))
@@ -91,6 +90,26 @@ def parse_seqdb_headers(fp_in, reads_in_layout):
         name_to_id[seq_name] = seq_id_str
     return id_to_name, name_to_id
 
+def load_reads(reads_fn, name_to_id):
+    in_paths = [reads_fn]
+    if reads_fn.lower().endswith('.fofn'):
+        with open(reads_fn) as fp_in:
+            in_paths = [line.strip() for line in fp_in]
+
+    # Using a custom sequence reader because it supports both FASTA and FASTQ.
+    seqs = {}
+    for record in yield_seq(in_paths):
+        # Each record is a list of 2 or 4 elements, which correspond to FASTA/FASTQ lines.
+        # The header also contains the '>' or '@' character.
+        rname = record[0][1:].split()[0]
+        # Value -1 is an invalid value for seqIDs, but using it as
+        # a dummy value can therefore allow us to avoid a branching and
+        # double dict lookups.
+        # Nothing will match -1.
+        seq_id = name_to_id.get(rname, -1)
+        seqs[seq_id] = record[1]
+    return seqs
+
 def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_fn, utg_data_fn, ctg_paths_fn):
     """improper==True => Neglect the initial read.
     We used to need that for unzip.
@@ -111,15 +130,7 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
     with open_progress(seqdb_fn) as fp_in:
         id_to_name, name_to_id = parse_seqdb_headers(fp_in, reads_in_layout)
 
-    seqs = {}
-    # load all p-read name into memory
-    with open_fasta_reader(preads_fasta_fn) as f:
-        for r in f:
-            rname = r.name.strip().split()[0]
-            if rname not in name_to_id:
-                continue
-            seq_id = name_to_id[rname]
-            seqs[seq_id] = r.sequence.upper() # name == rid-string
+    seqs = load_reads(preads_fasta_fn, name_to_id)
 
     edge_data = {}
     with open_progress(sg_edges_list_fn) as f:
@@ -315,6 +326,115 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
     p_ctg_out.close()
     a_ctg_t_out.close()
     p_ctg_t_out.close()
+
+#######################################
+#######################################
+#######################################
+
+"""
+Observes the next num_chars characters from a given file handle.
+Returns the characters (if possible) and returns the handle back.
+"""
+def peek(fp, num_chars):
+    prev_pos = fp.tell()
+    data = fp.read(num_chars)
+    if len(data) == 0:
+        return ''
+    fp.seek(prev_pos, 0)
+    return data
+
+"""
+Returns a single read from the given FASTA/FASTQ file.
+Parameter header contains only the header of the read.
+Parameter lines contains all lines of the read, which include:
+- header
+- seq
+- '+' if FASTQ
+- quals if FASTQ
+Parameter lines is an array of strings, each for one component.
+Please note that multiline FASTA/FASTQ entries (e.g. sequence line)
+will be truncated into one single line.
+Author: Ivan Sovic, 2015.
+"""
+def get_single_read(fp):
+    lines = []
+
+    STATE_HEADER = 0
+    STATE_SEQ = 1
+    STATE_QUAL_SEPARATOR = 2
+    STATE_QUAL = 4
+    state = STATE_HEADER      # State machine. States:
+                                # 0 header, 1 seq, 2 '+' line, 3 quals.
+    num_lines = 0
+    header = ''
+    seq = ''
+    qual_separator = ''
+    qual = ''
+    lines = []
+
+    next_char = peek(fp, 1)
+    while (len(next_char) > 0):
+        line = fp.readline().rstrip()
+        next_char = peek(fp, 1)
+
+        if (state == STATE_HEADER):
+            if (len(line) == 0): continue
+            header_separator = line[0]
+            header = line[1:]         # Strip the '>' or '@' sign from the beginning.
+            lines.append(line)
+            next_state = STATE_SEQ
+        elif (state == STATE_SEQ):
+            seq += line
+            if (len(next_char) == 0):
+                lines.append(seq)
+                next_state = STATE_HEADER
+                break      # EOF.
+            elif (header_separator == '>' and next_char == header_separator):
+                lines.append(seq)
+                next_state = STATE_HEADER
+                break      # This function reads only one sequence.
+            elif (header_separator == '@' and next_char == '+'):
+                lines.append(seq)
+                next_state = STATE_QUAL_SEPARATOR
+            else:
+                next_state = STATE_SEQ
+
+        elif (state == STATE_QUAL_SEPARATOR):
+            qual_separator = line
+            lines.append(line)
+            next_state = STATE_QUAL
+
+        elif (state == STATE_QUAL):
+            qual += line
+            if (len(next_char) == 0):
+                lines.append(qual)
+                next_state = STATE_HEADER
+                break      # EOF.
+            elif (next_char == header_separator and len(qual) == len(seq)):
+                lines.append(qual)
+                next_state = STATE_HEADER
+                break      # This function reads only one sequence.
+            else:
+                next_state = STATE_QUAL
+        state = next_state
+
+    return [header, lines]
+
+def yield_seq(fofn_lines):
+    """
+    Yields a single sequence from a set of FASTA/FASTQ files provided
+    by the list of file names.
+    """
+    for file_name in fofn_lines:
+        with open(file_name) as fp_in:
+            while(True):
+                [header, seq] = get_single_read(fp_in)
+                if (len(seq) == 0): break
+                yield(seq)
+
+#######################################
+#######################################
+#######################################
 
 class HelpF(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass

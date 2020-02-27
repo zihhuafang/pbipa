@@ -72,8 +72,6 @@ function ovl_prepare {
     if [[ ! -s ${output_blocks} ]]; then
         echo "0" > ${output_blocks}
     fi
-    sleep 1
-    touch slept
 }
 
 function ovl_asym_run {
@@ -112,9 +110,6 @@ function ovl_asym_merge {
         ls -lH ${fn}
     done < ${input_fofn}
 
-    sleep 1
-    touch slept
-
     # Merge sort.
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.mergesort.memtime \
     sort -k1,1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
@@ -137,9 +132,6 @@ function phasing_prepare {
     #   ${output_blocks} (same info in 1 file)
 
     polyphase split --nFiles ${params_num_blocks} chunk ${input_m4}
-
-    sleep 1
-    touch slept
 }
 
 function phasing_run {

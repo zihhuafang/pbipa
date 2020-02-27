@@ -117,7 +117,7 @@ function ovl_asym_merge {
 
     # Filter.
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
-    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.merged.fofn --output-fn ovl.merged.filt1.m4 ${params_ovlp_filter_opt} --filter-log m4-readfilt.log
+    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.merged.fofn --output-fn ovl.merged.filt1.m4 --keepIntermediates ${params_ovlp_filter_opt} --filter-log m4-readfilt.log
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
     falconc m4filt-contained --min-idt ${params_ovlp_min_idt} --min-len ${params_ovlp_min_len} --in ovl.merged.filt1.m4 --out ${output_ovl}

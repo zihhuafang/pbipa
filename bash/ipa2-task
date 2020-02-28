@@ -14,6 +14,7 @@ function which {
 
 function generate_config_ccs {
     # Inputs:
+    #   params_existing_db_prefix
     #   params_genome_size
     #   params_coverage
     #   params_block_size
@@ -26,7 +27,8 @@ function generate_config_ccs {
     #   config.sh
 
     # First, write out the workflow options.
-    echo "genome_size=${params_genome_size}" > config.sh
+    echo "existing_db_prefix=${params_existing_db_prefix}" > config.sh
+    echo "genome_size=${params_genome_size}" >> config.sh
     echo "coverage=${params_coverage}" >> config.sh
     echo "block_size=${params_block_size}" >> config.sh
     echo "seqdb_opt='${params_seqdb_opt}'" >> config.sh
@@ -49,11 +51,26 @@ function build_db {
     helper_load_config ${params_config_sh_fn}
     local params_block_size=${block_size}
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
-    pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+    # If the user specified a DB prefix, just symlink it.    
+    if [[ -z "${existing_db_prefix}" ]]; then
+        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
+        pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seeddb.memtime \
-    /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seeddb.memtime \
+        /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+    else
+        ln -sf ${existing_db_prefix}.seqdb ${params_db_prefix}.seqdb
+        for fn in ${existing_db_prefix}.seqdb.*
+        do
+            ln -sf ${fn}
+        done
+
+        ln -sf ${existing_db_prefix}.seeddb ${params_db_prefix}.seeddb
+        for fn in ${existing_db_prefix}.seeddb.*
+        do
+            ln -sf ${fn}
+        done
+    fi
 }
 
 function ovl_prepare {

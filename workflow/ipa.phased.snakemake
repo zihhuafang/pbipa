@@ -5,6 +5,7 @@ CWD = os.getcwd()
 
 CTG_PREFIX = "ctg."
 READS_FN = config['reads_fn']
+EXISTING_DB_PREFIX = config['existing_db_prefix']
 NPROC = config['nproc']
 GENOME_SIZE = config['genome_size']
 COVERAGE = config['coverage']
@@ -27,10 +28,9 @@ rule generate_config:
     output:
         config = "generate_config/config.sh"
     input:
-        # Reads are not really used here, but just used to run the workflow
-        # when they become available.
         reads_fn = READS_FN,
     params:
+        existing_db_prefix = EXISTING_DB_PREFIX,
         genome_size = GENOME_SIZE,
         coverage = COVERAGE,
         block_size = BLOCK_SIZE,
@@ -46,6 +46,7 @@ rule generate_config:
         cd generate_config
         rel=..
 
+        params_existing_db_prefix="{params.existing_db_prefix}" \
         params_genome_size="{params.genome_size}" \
         params_coverage="{params.coverage}" \
         params_block_size="{params.block_size}" \
@@ -253,9 +254,9 @@ rule assemble:
 #        contig_gfa2 = "assemble/contig.gfa2",
         circular_contigs = "assemble/circular_contigs.csv",
     input:
+        reads_fn = READS_FN,
         seqdb = rules.build_db.output.seqdb,
         m4 = rules.phasing_merge.output.gathered_m4,
-        reads = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
     params:
         ctg_prefix = CTG_PREFIX,
@@ -267,7 +268,7 @@ rule assemble:
 
         input_seqdb="$rel/{input.seqdb}" \
         input_m4="$rel/{input.m4}" \
-        input_reads="{input.reads}" \
+        input_reads="{input.reads_fn}" \
         params_ctg_prefix={params.ctg_prefix} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task assemble

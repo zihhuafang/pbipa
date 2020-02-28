@@ -1,5 +1,6 @@
 {
     'reads_fn': '/pbi/dept/consensus/isovic/data-depo/ccs/ecoli/ecoli-k12-2019_03_30/m64030_190330_071939.Q20.30x.fasta',
+    'existing_db_prefix': '',
     'nproc': 8,
     'genome_size': 0,
     'coverage': 0,

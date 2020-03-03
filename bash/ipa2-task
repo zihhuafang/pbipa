@@ -120,11 +120,9 @@ function ovl_asym_run {
 
 function ovl_asym_merge {
     helper_load_config ${params_config_sh_fn}
-    local params_ovlp_filter_opt=${ovl_filter_opt}
-    local params_ovlp_min_idt=${ovl_min_idt}
-    local params_ovlp_min_len=${ovl_min_len}
-
-    # These are explicit inputs:
+    # Explicit inputs:
+    #   input_fofn
+    # Explicit parameters:
     #   params_num_threads
     #   params_config_sh_fn
 
@@ -138,21 +136,18 @@ function ovl_asym_merge {
     sort -k1,1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
     echo ovl.merged.m4 > ovl.merged.fofn
 
-    # Filter.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
-    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.merged.fofn --output-fn ovl.merged.filt1.m4 --keepIntermediates ${params_ovlp_filter_opt} --filter-log m4-readfilt.log
-
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
-    falconc m4filt-contained --min-idt ${params_ovlp_min_idt} --min-len ${params_ovlp_min_len} --in ovl.merged.filt1.m4 --out ${output_ovl}
+    # Filter out any local alignments. Important for phasing.
+    awk '{ if ($13 != "u") { print } }' ovl.merged.m4 > ovl.nonlocal.m4
 }
 
 function phasing_prepare {
     # Input:
     #   input_m4
-    #   params_num_blocks
     # Output:
     #   *.m4 in cwd
     #   ${output_blocks} (same info in 1 file)
+    # Parameters:
+    #   params_num_blocks
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_prepare.polyphase_split.memtime \
     polyphase split --nFiles ${params_num_blocks} chunk ${input_m4}
@@ -162,8 +157,10 @@ function phasing_run {
     # These are explicit inputs:
     #   input_fasta
     #   input_m4
+    # Outputs:
     #   output_keep_m4
     #   output_scraps_m4
+    # Parameters:
     #   params_num_threads
 
     helper_load_config ${params_config_sh_fn}
@@ -178,10 +175,12 @@ function phasing_run {
 }
 
 function phasing_merge {
-    # These are explicit inputs and outputs:
+    # These are explicit inputs:
     #   input_keep_fofn
     #   input_scraps_fofn
+    # Outputs:
     #   output_m4
+    # Parameters:
     #   params_num_threads
 
     cat ${input_keep_fofn} | xargs cat > all.keep.m4
@@ -189,6 +188,29 @@ function phasing_merge {
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_merge.polyphase_symmetrical.memtime \
     polyphase symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
+}
+
+function ovl_filter {
+    # Explicit inputs:
+    #   input_m4
+    # Explicit outputs:
+    #   output_m4_final
+    #   output_m4_chimerfilt
+    # Parameters:
+    #   params_num_threads
+    #   params_config_sh_fn
+
+    helper_load_config ${params_config_sh_fn}
+
+    echo ${input_m4} > ovl.fofn
+
+    # Filter.
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
+    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${ovl_filter_opt} --filter-log m4-readfilt.log
+
+    # Containment removal.
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
+    falconc m4filt-contained --min-idt ${ovl_min_idt} --min-len ${ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
 }
 
 function assemble {
@@ -202,6 +224,7 @@ function assemble {
 
     ln -sf ${input_m4} preads.m4
     ln -sf ${input_reads}
+    ln -sf ${input_reads} preads4falcon.fasta
 
     preads4falcon_bn=$(basename ${input_reads})
 
@@ -245,26 +268,33 @@ function assemble {
     # Given a_ctg.fasta and a_ctg_all_tiling_path, write a_ctg_tiling_path:
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tph.memtime \
     python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
+}
 
+function get_gfa {
     ### The following lines are commented out because they take plenty of time to run.
     # Collect all info needed to format the GFA-1 and GFA-2 representations of
     # the assembly graphs.
-#    time python3 -m falcon_kit.mains.collect_pread_gfa >| asm.gfa.json
-#    time python3 -m falcon_kit.mains.collect_pread_gfa --add-string-graph >| sg.gfa.json
-#    time python3 -m falcon_kit.mains.collect_contig_gfa >| contig.gfa.json
+    time python3 -m falcon_kit.mains.collect_pread_gfa >| asm.gfa.json
+#    time python3 -m falcon_kit.mains.collect_pread_gfa --write-reads >| asm.preads.gfa.json
+    time python3 -m falcon_kit.mains.collect_pread_gfa --add-string-graph >| sg.gfa.json
+#    time python3 -m falcon_kit.mains.collect_pread_gfa --add-string-graph --write-reads >| sg.preads.gfa.json
+    time python3 -m falcon_kit.mains.collect_contig_gfa >| contig.gfa.json
 
     # Output the assembly pread graph.
-#    time python3 -m falcon_kit.mains.gen_gfa_v1 asm.gfa.json >| asm.gfa
-#    time python3 -m falcon_kit.mains.gen_gfa_v2 asm.gfa.json >| asm.gfa2
-#    time python3 -m falcon_kit.mains.gen_bandage_csv asm.gfa.json >| asm.csv
+    time python3 -m falcon_kit.mains.gen_gfa_v1 asm.gfa.json >| asm.gfa
+#    time python3 -m falcon_kit.mains.gen_gfa_v1 asm.preads.gfa.json >| asm.preads.gfa
+    time python3 -m falcon_kit.mains.gen_gfa_v2 asm.gfa.json >| asm.gfa2
+    time python3 -m falcon_kit.mains.gen_bandage_csv asm.gfa.json >| asm.csv
 
     # Output the string graph.
-#    time python3 -m falcon_kit.mains.gen_gfa_v1 sg.gfa.json >| sg.gfa
-#    time python3 -m falcon_kit.mains.gen_gfa_v2 sg.gfa.json >| sg.gfa2
-#    time python3 -m falcon_kit.mains.gen_bandage_csv sg.gfa.json >| sg.csv
+    time python3 -m falcon_kit.mains.gen_gfa_v1 sg.gfa.json >| sg.gfa
+#    time python3 -m falcon_kit.mains.gen_gfa_v1 sg.preads.gfa.json >| sg.preads.gfa
+    time python3 -m falcon_kit.mains.gen_gfa_v2 sg.gfa.json >| sg.gfa2
+    time python3 -m falcon_kit.mains.gen_bandage_csv sg.gfa.json >| sg.csv
 
     # Output the contig graph with associate contigs attached to each primary contig.
-#    time python3 -m falcon_kit.mains.gen_gfa_v2 contig.gfa.json >| contig.gfa2
+    time python3 -m falcon_kit.mains.gen_gfa_v2 contig.gfa.json >| contig.gfa2
+
 }
 
 function help {
@@ -295,10 +325,12 @@ case $1 in
   |ovl_prepare \
   |ovl_asym_run \
   |ovl_asym_merge \
+  |ovl_filter \
   |phasing_prepare \
   |phasing_run \
   |phasing_merge \
   |assemble \
+  |get_gfa \
 )
     set -vexu -o pipefail
     $*

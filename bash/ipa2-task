@@ -38,6 +38,7 @@ function generate_config_ccs {
     echo "ovl_min_idt=${params_ovl_min_idt}" >> config.sh
     echo "ovl_min_len=${params_ovl_min_len}" >> config.sh
     echo "ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
+    echo "use_seq_ids=${params_use_seq_ids}" >> config.sh
 }
 
 function build_db {
@@ -105,8 +106,13 @@ function ovl_asym_run {
     local local_db_prefix=$(dirname ${input_seqdb})/${params_db_prefix}
     local last_block=$((params_block_id + 1))
 
+    local opt_use_seq_ids=""
+    if [[ ${use_seq_ids} -eq 1 ]]; then
+        opt_use_seq_ids="--write-ids"
+    fi
+
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.pancake.memtime \
-    pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev --write-ids ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
+    pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
     
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
@@ -160,8 +166,15 @@ function phasing_run {
     #   output_scraps_m4
     #   params_num_threads
 
+    helper_load_config ${params_config_sh_fn}
+
+    local opt_use_seq_ids=""
+    if [[ ${use_seq_ids} -eq 1 ]]; then
+        opt_use_seq_ids="--alias"
+    fi
+
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_run.polyphase_phase.memtime \
-    polyphase phase --alias ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+    polyphase phase ${opt_use_seq_ids} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
 function phasing_merge {
@@ -199,8 +212,12 @@ function assemble {
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
     python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
+    local opt_use_seq_ids=""
+    if [[ ${use_seq_ids} -eq 1 ]]; then
+        opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
+    fi
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
-    python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py --seqdb-fn ${input_seqdb} --preads-fasta-fn ${preads4falcon_bn}
+    python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn}
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 

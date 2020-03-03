@@ -90,7 +90,7 @@ def parse_seqdb_headers(fp_in, reads_in_layout):
         name_to_id[seq_name] = seq_id_str
     return id_to_name, name_to_id
 
-def load_reads(reads_fn, name_to_id):
+def load_reads(reads_fn, name_to_id=None):
     in_paths = [reads_fn]
     if reads_fn.lower().endswith('.fofn'):
         with open(reads_fn) as fp_in:
@@ -98,16 +98,25 @@ def load_reads(reads_fn, name_to_id):
 
     # Using a custom sequence reader because it supports both FASTA and FASTQ.
     seqs = {}
-    for record in yield_seq(in_paths):
-        # Each record is a list of 2 or 4 elements, which correspond to FASTA/FASTQ lines.
-        # The header also contains the '>' or '@' character.
-        rname = record[0][1:].split()[0]
-        # Value -1 is an invalid value for seqIDs, but using it as
-        # a dummy value can therefore allow us to avoid a branching and
-        # double dict lookups.
-        # Nothing will match -1.
-        seq_id = name_to_id.get(rname, -1)
-        seqs[seq_id] = record[1]
+
+    # If a name_to_id map is provided, then use it find the IDs of the reads.
+    # Otherwise, just use the header.
+    if name_to_id:
+        for record in yield_seq(in_paths):
+            # Each record is a list of 2 or 4 elements, which correspond to FASTA/FASTQ lines.
+            # The header also contains the '>' or '@' character.
+            rname = record[0][1:].split()[0]
+            # Value -1 is an invalid value for seqIDs, but using it as
+            # a dummy value can therefore allow us to avoid a branching and
+            # double dict lookups.
+            # Nothing will match -1.
+            seq_id = name_to_id.get(rname, -1)
+            seqs[seq_id] = record[1]
+    else:
+        for record in yield_seq(in_paths):
+            rname = record[0][1:].split()[0]
+            seqs[rname] = record[1]
+
     return seqs
 
 def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_fn, utg_data_fn, ctg_paths_fn):
@@ -127,8 +136,10 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
             r2 = w.split(":")[0]
             reads_in_layout.add(r2)
 
-    with open_progress(seqdb_fn) as fp_in:
-        id_to_name, name_to_id = parse_seqdb_headers(fp_in, reads_in_layout)
+    name_to_id = None
+    if seqdb_fn:
+        with open_progress(seqdb_fn) as fp_in:
+            _, name_to_id = parse_seqdb_headers(fp_in, reads_in_layout)
 
     seqs = load_reads(preads_fasta_fn, name_to_id)
 
@@ -461,7 +472,7 @@ We write these:
             default='./preads4falcon.fasta',
             help='Input. Preads file, required to construct the contigs.')
     parser.add_argument('--seqdb-fn', type=str,
-            default='./reads.seqdb',
+            default='',
             help='The SeqDB file to give a relation between ID->header.')
     parser.add_argument('--sg-edges-list-fn', type=str,
             default='./sg_edges_list',

@@ -138,14 +138,15 @@ rule ovl_asym_run:
 
 rule ovl_asym_merge:
     output:
-        gathered_m4 = "ovl_asym_merge/reads.ovl",
+        m4_merged_raw = "ovl_asym_merge/ovl.merged.m4",
+        m4_filtered_nonlocal = "ovl_asym_merge/ovl.nonlocal.m4",
     input:
         fns = gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
         num_threads = NPROC,
     shell: """
-        wd=$(dirname {output.gathered_m4})
+        wd=$(dirname {output.m4_merged_raw})
         mkdir -p $wd
         cd $wd
         rel=..
@@ -156,11 +157,33 @@ rule ovl_asym_merge:
         done >| ./merged.fofn
 
         input_fofn=./merged.fofn \
-        output_ovl="reads.ovl" \
         params_num_threads="{params.num_threads}" \
         params_db_prefix="reads" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task ovl_asym_merge
+    """
+
+rule ovl_filter:
+    output:
+        m4_final = "ovl_filter/ovl.final.m4",
+        m4_chimerfilt = "ovl_filter/ovl.chimerfilt.m4",
+    input:
+        m4 = rules.ovl_asym_merge.output.m4_merged_raw,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.m4_final})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_m4="$rel/{input.m4}" \
+        output_m4_final=$(basename {output.m4_final}) \
+        output_m4_chimerfilt=$(basename {output.m4_chimerfilt}) \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task ovl_filter
     """
 
 rule assemble:
@@ -176,7 +199,7 @@ rule assemble:
     input:
         reads_fn = READS_FN,
         seqdb = rules.build_db.output.seqdb,
-        m4 = rules.ovl_asym_merge.output.gathered_m4,
+        m4 = rules.ovl_filter.output.m4_final,
         config_sh_fn = rules.generate_config.output.config,
     params:
         ctg_prefix = CTG_PREFIX,

@@ -233,7 +233,7 @@ function assemble {
 
     # Run the assembly.
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
-    python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
+    python3 ${IPA2_WORKSPACE}/scripts/ovlp_to_graph.py --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     local opt_use_seq_ids=""
     if [[ ${use_seq_ids} -eq 1 ]]; then

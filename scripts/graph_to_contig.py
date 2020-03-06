@@ -17,18 +17,27 @@ After that the dedup_a_tigs.py script is used to deduplicate fake a_ctg.
 But that script is simple, and only depends on the alignment info that the previous script stored in the a_ctg header.
 """
 
+import os
 import argparse
 import logging
 import sys
 import networkx as nx
-from falcon_kit.io import open_progress
+import time
+import contextlib
 
+LOG = logging.getLogger(__name__)
 RCMAP = dict(list(zip("ACGTacgtNn-", "TGCAtgcaNn-")))
 
 def log(msg):
     sys.stderr.write(msg)
     sys.stderr.write('\n')
 
+def time_diff_to_str(time_list):
+    elapsed_time = time_list[1] - time_list[0]
+    return time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
+def log_time(label, time_list):
+    LOG.info('Time for "{}": {}'.format(label, time_diff_to_str(time_list)))
 
 def rc(seq):
     return "".join([RCMAP[c] for c in seq[::-1]])
@@ -38,6 +47,92 @@ def reverse_end(node_id):
     new_end = "B" if end == "E" else "E"
     return node_id + ":" + new_end
 
+######################################################
+### The open_progress, Percenter and FilePercenter ###
+### were copied here from falcon_kit.io.           ###
+### The filesize was copied from pypeflow.io.      ###
+######################################################
+class Percenter(object):
+    """Report progress by golden exponential.
+
+    Usage:
+        counter = Percenter('mystruct', total_len(mystruct))
+
+        for rec in mystruct:
+            counter(len(rec))
+    """
+    def __init__(self, name, total, log=LOG.info, units='units'):
+        if sys.maxsize == total:
+            log('Counting {} from "{}"'.format(units, name))
+        else:
+            log('Counting {:,d} {} from\n  "{}"'.format(total, units, name))
+        self.total = total
+        self.log = log
+        self.name = name
+        self.units = units
+        self.call = 0
+        self.count = 0
+        self.next_count = 0
+        self.a = 1 # double each time
+    def __call__(self, more, label=''):
+        self.call += 1
+        self.count += more
+        if self.next_count <= self.count:
+            self.a = 2 * self.a
+            self.a = max(self.a, more)
+            self.a = min(self.a, (self.total-self.count), round(self.total/10.0))
+            self.next_count = self.count + self.a
+            if self.total == sys.maxsize:
+                msg = '{:>10} count={:15,d} {}'.format(
+                    '#{:,d}'.format(self.call), self.count, label)
+            else:
+                msg = '{:>10} count={:15,d} {:6.02f}% {}'.format(
+                    '#{:,d}'.format(self.call), self.count, 100.0*self.count/self.total, label)
+            self.log(msg)
+    def finish(self):
+        self.log('Counted {:,d} {} in {} calls from:\n  "{}"'.format(
+            self.count, self.units, self.call, self.name))
+
+
+def FilePercenter(fn, log=LOG.info):
+    if '-' == fn or not fn:
+        size = sys.maxsize
+    else:
+        size = filesize(fn)
+        if fn.endswith('.dexta'):
+            size = size * 4
+        elif fn.endswith('.gz'):
+            size = sys.maxsize # probably 2.8x to 3.2x, but we are not sure, and higher is better than lower
+            # https://stackoverflow.com/a/22348071
+            # https://jira.pacificbiosciences.com/browse/TAG-2836
+    return Percenter(fn, size, log, units='bytes')
+
+@contextlib.contextmanager
+def open_progress(fn, mode='r', log=LOG.info):
+    """
+    Usage:
+        with open_progress('foo', log=LOG.info) as stream:
+            for line in stream:
+                use(line)
+
+    That will log progress lines.
+    """
+    def get_iter(stream, progress):
+        for line in stream:
+            progress(len(line))
+            yield line
+
+    fp = FilePercenter(fn, log=log)
+    with open(fn, mode=mode) as stream:
+        yield get_iter(stream, fp)
+    fp.finish()
+
+def filesize(fn):
+    """In bytes.
+    Raise if fn does not exist.
+    """
+    return os.stat(fn).st_size
+######################################################
 
 def yield_first_seq(one_path_edges, seqs):
     if one_path_edges and one_path_edges[0][0] != one_path_edges[-1][1]:
@@ -123,6 +218,9 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
     """improper==True => Neglect the initial read.
     We used to need that for unzip.
     """
+    time_total = [time.time()]
+
+    time_reads_in_layout = [time.time()]
     reads_in_layout = set()
     with open_progress(sg_edges_list_fn) as f:
         for l in f:
@@ -135,14 +233,23 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
             reads_in_layout.add(r1)
             r2 = w.split(":")[0]
             reads_in_layout.add(r2)
+    time_reads_in_layout += [time.time()]
+    log_time('reads_in_layout', time_reads_in_layout)
 
+    time_parse_seqdb_headers = [time.time()]
     name_to_id = None
     if seqdb_fn:
         with open_progress(seqdb_fn) as fp_in:
             _, name_to_id = parse_seqdb_headers(fp_in, reads_in_layout)
+    time_parse_seqdb_headers += [time.time()]
+    log_time('parse_seqdb_headers', time_parse_seqdb_headers)
 
+    time_load_reads = [time.time()]
     seqs = load_reads(preads_fasta_fn, name_to_id)
+    time_load_reads += [time.time()]
+    log_time('load_reads', time_load_reads)
 
+    time_edge_data = [time.time()]
     edge_data = {}
     with open_progress(sg_edges_list_fn) as f:
         for l in f:
@@ -171,7 +278,10 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                 e_seq = "".join([RCMAP[c] for c in seqs[rid][t:s][::-1]])
                 assert 'B' == dir2
             edge_data[(v, w)] = (rid, s, t, aln_score, idt, e_seq)
+    time_edge_data += [time.time()]
+    log_time('edge_data', time_edge_data)
 
+    time_utg_data = [time.time()]
     utg_data = {}
     with open_progress(utg_data_fn) as f:
         for l in f:
@@ -187,13 +297,15 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                 path_or_edges = [tuple(e.split("~"))
                                  for e in path_or_edges.split("|")]
             utg_data[(s, v, t)] = type_, length, score, path_or_edges
+    time_utg_data += [time.time()]
+    log_time('utg_data', time_utg_data)
 
+    time_write_contigs = [time.time()]
     p_ctg_out = open("p_ctg.fasta", "w")
     a_ctg_out = open("a_ctg_all.fasta", "w")
     p_ctg_t_out = open("p_ctg_tiling_path", "w")
     a_ctg_t_out = open("a_ctg_all_tiling_path", "w")
     layout_ctg = set()
-
     with open_progress(ctg_paths_fn) as f:
         for l in f:
             l = l.strip().split()
@@ -332,11 +444,15 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                     a_ctg_out.write('\n')
 
                 a_id += 1
-
     a_ctg_out.close()
     p_ctg_out.close()
     a_ctg_t_out.close()
     p_ctg_t_out.close()
+    time_write_contigs += [time.time()]
+    log_time('write_contigs', time_write_contigs)
+
+    time_total += [time.time()]
+    log_time('TOTAL', time_total)
 
 #######################################
 #######################################
@@ -451,6 +567,8 @@ class HelpF(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpF
     pass
 
 def main(argv=sys.argv):
+    sys.stderr.write("IPA2 version of graph_to_contig.\n")
+
     description = 'Generate the primary and alternate contig fasta files and tiling paths, given the string graph.'
     epilog = """
 We write these:
@@ -484,8 +602,9 @@ We write these:
             default='./ctg_paths',
             help='Input. File containing contig paths, produced by ovlp_to_graph.py.')
     args = parser.parse_args(argv[1:])
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='[%(asctime)s %(levelname)s] %(msg)s', datefmt='%Y-%m-%d %H:%M:%S')
     run(**vars(args))
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    # logging.basicConfig(level=logging.INFO)
     main(sys.argv)

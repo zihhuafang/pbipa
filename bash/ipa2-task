@@ -233,14 +233,14 @@ function assemble {
 
     # Run the assembly.
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
-    python3 -m falcon_kit.mains.ovlp_to_graph --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
+    python3 ${IPA2_WORKSPACE}/scripts/ovlp_to_graph.py --depth-cutoff 20000 --width-cutoff 30000 --length-cutoff 15000000 --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     local opt_use_seq_ids=""
     if [[ ${use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
     fi
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
-    python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn}
+    python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 

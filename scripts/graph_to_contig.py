@@ -22,13 +22,21 @@ import logging
 import sys
 import networkx as nx
 from falcon_kit.io import open_progress
+import time
 
+LOG = logging.getLogger(__name__)
 RCMAP = dict(list(zip("ACGTacgtNn-", "TGCAtgcaNn-")))
 
 def log(msg):
     sys.stderr.write(msg)
     sys.stderr.write('\n')
 
+def time_diff_to_str(time_list):
+    elapsed_time = time_list[1] - time_list[0]
+    return time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
+def log_time(label, time_list):
+    LOG.info('Time for "{}": {}'.format(label, time_diff_to_str(time_list)))
 
 def rc(seq):
     return "".join([RCMAP[c] for c in seq[::-1]])
@@ -123,6 +131,9 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
     """improper==True => Neglect the initial read.
     We used to need that for unzip.
     """
+    time_total = [time.time()]
+
+    time_reads_in_layout = [time.time()]
     reads_in_layout = set()
     with open_progress(sg_edges_list_fn) as f:
         for l in f:
@@ -135,14 +146,23 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
             reads_in_layout.add(r1)
             r2 = w.split(":")[0]
             reads_in_layout.add(r2)
+    time_reads_in_layout += [time.time()]
+    log_time('reads_in_layout', time_reads_in_layout)
 
+    time_parse_seqdb_headers = [time.time()]
     name_to_id = None
     if seqdb_fn:
         with open_progress(seqdb_fn) as fp_in:
             _, name_to_id = parse_seqdb_headers(fp_in, reads_in_layout)
+    time_parse_seqdb_headers += [time.time()]
+    log_time('parse_seqdb_headers', time_parse_seqdb_headers)
 
+    time_load_reads = [time.time()]
     seqs = load_reads(preads_fasta_fn, name_to_id)
+    time_load_reads += [time.time()]
+    log_time('load_reads', time_load_reads)
 
+    time_edge_data = [time.time()]
     edge_data = {}
     with open_progress(sg_edges_list_fn) as f:
         for l in f:
@@ -171,7 +191,10 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                 e_seq = "".join([RCMAP[c] for c in seqs[rid][t:s][::-1]])
                 assert 'B' == dir2
             edge_data[(v, w)] = (rid, s, t, aln_score, idt, e_seq)
+    time_edge_data += [time.time()]
+    log_time('edge_data', time_edge_data)
 
+    time_utg_data = [time.time()]
     utg_data = {}
     with open_progress(utg_data_fn) as f:
         for l in f:
@@ -187,13 +210,15 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                 path_or_edges = [tuple(e.split("~"))
                                  for e in path_or_edges.split("|")]
             utg_data[(s, v, t)] = type_, length, score, path_or_edges
+    time_utg_data += [time.time()]
+    log_time('utg_data', time_utg_data)
 
+    time_write_contigs = [time.time()]
     p_ctg_out = open("p_ctg.fasta", "w")
     a_ctg_out = open("a_ctg_all.fasta", "w")
     p_ctg_t_out = open("p_ctg_tiling_path", "w")
     a_ctg_t_out = open("a_ctg_all_tiling_path", "w")
     layout_ctg = set()
-
     with open_progress(ctg_paths_fn) as f:
         for l in f:
             l = l.strip().split()
@@ -332,11 +357,15 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                     a_ctg_out.write('\n')
 
                 a_id += 1
-
     a_ctg_out.close()
     p_ctg_out.close()
     a_ctg_t_out.close()
     p_ctg_t_out.close()
+    time_write_contigs += [time.time()]
+    log_time('write_contigs', time_write_contigs)
+
+    time_total += [time.time()]
+    log_time('TOTAL', time_total)
 
 #######################################
 #######################################
@@ -451,6 +480,8 @@ class HelpF(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpF
     pass
 
 def main(argv=sys.argv):
+    sys.stderr.write("IPA2 version of graph_to_contig.\n")
+
     description = 'Generate the primary and alternate contig fasta files and tiling paths, given the string graph.'
     epilog = """
 We write these:
@@ -484,8 +515,9 @@ We write these:
             default='./ctg_paths',
             help='Input. File containing contig paths, produced by ovlp_to_graph.py.')
     args = parser.parse_args(argv[1:])
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='[%(asctime)s %(levelname)s] %(msg)s', datefmt='%Y-%m-%d %H:%M:%S')
     run(**vars(args))
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    # logging.basicConfig(level=logging.INFO)
     main(sys.argv)

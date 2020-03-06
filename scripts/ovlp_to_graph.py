@@ -7,6 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 
 # Not sure if adds to stability, but at least adds determinism.
 from collections import OrderedDict as dict
@@ -975,12 +976,28 @@ def construct_compound_paths_3(ug, compound_paths_2, edge_to_cpath):
 def construct_compound_paths(ug, u_edge_data, depth_cutoff, width_cutoff, length_cutoff):
 
     branch_nodes = identify_branch_nodes(ug)
-
+    
+    time_compound_paths_0 = [time.time()]
     compound_paths_0 = construct_compound_paths_0(ug, u_edge_data, branch_nodes, depth_cutoff, width_cutoff, length_cutoff)
-    compound_paths_1 = construct_compound_paths_1(compound_paths_0)
-    compound_paths_2, edge_to_cpath = construct_compound_paths_2(compound_paths_1)
-    compound_paths_3 = construct_compound_paths_3(ug, compound_paths_2, edge_to_cpath)
+    time_compound_paths_0 += [time.time()]
+    log_time('  - compound_paths_0', time_compound_paths_0)
 
+    time_compound_paths_1 = [time.time()]
+    compound_paths_1 = construct_compound_paths_1(compound_paths_0)
+    time_compound_paths_1 += [time.time()]
+    log_time('  - compound_paths_1', time_compound_paths_1)
+
+    time_compound_paths_2 = [time.time()]
+    compound_paths_2, edge_to_cpath = construct_compound_paths_2(compound_paths_1)
+    time_compound_paths_2 += [time.time()]
+    log_time('  - compound_paths_2', time_compound_paths_2)
+
+    time_compound_paths_3 = [time.time()]
+    compound_paths_3 = construct_compound_paths_3(ug, compound_paths_2, edge_to_cpath)
+    time_compound_paths_3 += [time.time()]
+    log_time('  - compound_paths_3', time_compound_paths_3)
+
+    time_compound_paths_update = [time.time()]
     compound_paths = {}
     for s, v, t in compound_paths_3:
         rs = reverse_end(t)
@@ -988,6 +1005,8 @@ def construct_compound_paths(ug, u_edge_data, depth_cutoff, width_cutoff, length
         if (rs, "NA", rt) not in compound_paths_3:
             continue
         compound_paths[(s, v, t)] = compound_paths_3[(s, v, t)]
+    time_compound_paths_update += [time.time()]
+    log_time('  - compound_paths_update', time_compound_paths_update)
 
     return compound_paths
 
@@ -1445,23 +1464,44 @@ def print_utg_data0(u_edge_data):
                 path_or_edges = "~".join(path_or_edges)
             print(s, v, t, type_, length, score, path_or_edges, file=f)
 
+def time_diff_to_str(time_list):
+    elapsed_time = time_list[1] - time_list[0]
+    return time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+
+def log_time(label, time_list):
+    LOG.info('Time for "{}": {}'.format(label, time_diff_to_str(time_list)))
+
 def ovlp_to_graph(args):
+    time_total = [time.time()]
+
+    time_yield_from_overlap = [time.time()]
     overlap_data = yield_from_overlap_file(args.overlap_file)
+    time_yield_from_overlap += [time.time()]
+    log_time('yield_from_overlap_file', time_yield_from_overlap)
 
     # transitivity reduction
+    time_init_sg = [time.time()]
     sg = init_string_graph(overlap_data)
+    time_init_sg += [time.time()]
+    log_time('init_string_graph', time_init_sg)
 
     # remove spurs, remove putative edges caused by repeats
+    time_generate_nx = [time.time()]
     nxsg, edge_data = generate_nx_string_graph(sg, args.lfc, args.disable_chimer_bridge_removal)
     del sg, overlap_data
+    time_generate_nx += [time.time()]
+    log_time('generate_nx_string_graph', time_generate_nx)
 
     #dual_path = {}
+    time_init_sg2 = [time.time()]
     nxsg2 = init_sg2(edge_data)
+    time_init_sg2 += [time.time()]
+    log_time('init_sg2', time_init_sg2)
 
+    time_ug_simple_paths = [time.time()]
     ug = nx.MultiDiGraph()
     u_edge_data = {}
     circular_path = set()
-
     simple_paths = identify_simple_paths(nxsg2, edge_data)
     for s, v, t in simple_paths:
         length, score, path = simple_paths[(s, v, t)]
@@ -1471,34 +1511,51 @@ def ovlp_to_graph(args):
                         via=v, length=length, score=score)
         else:
             circular_path.add((s, t, v))
-
     if LOG.getEffectiveLevel() >= logging.DEBUG:
         print_utg_data0(u_edge_data)
+    time_ug_simple_paths += [time.time()]
+    log_time('ug_simple_paths', time_ug_simple_paths)
 
+    time_identify_spurs_1 = [time.time()]
     ug2 = identify_spurs(ug, u_edge_data, 50000)
+    time_identify_spurs_1 += [time.time()]
+    log_time('identify_spurs-1', time_identify_spurs_1)
+
+    time_remove_dup_simple = [time.time()]
     ug2 = remove_dup_simple_path(ug2, u_edge_data)
+    time_remove_dup_simple += [time.time()]
+    log_time('remove_dup_simple_path', time_remove_dup_simple)
 
     # phase 2, finding all "consistent" compound paths
+    time_construct_compound_paths = [time.time()]
     compound_paths = construct_compound_paths(ug2, u_edge_data, args.depth_cutoff, args.width_cutoff, args.length_cutoff)
+    time_construct_compound_paths += [time.time()]
+    log_time('construct_compound_paths', time_construct_compound_paths)
+
+    time_edges_to_remove = [time.time()]
     edges_to_remove = identify_edges_to_remove(compound_paths, ug2)
     for s, t, v in edges_to_remove:
         ug2.remove_edge(s, t, v)
         length, score, edges, type_ = u_edge_data[(s, t, v)]
         if type_ != "spur":
             u_edge_data[(s, t, v)] = length, score, edges, "contained"
+    time_edges_to_remove += [time.time()]
+    log_time('edges_to_remove', time_edges_to_remove)
 
+    time_compound_add_edges = [time.time()]
     for s, v, t in compound_paths:
         width, length, score, bundle_edges = compound_paths[(s, v, t)]
         u_edge_data[(s, t, v)] = (length, score, bundle_edges, "compound")
         ug2.add_edge(s, t, key=v, via=v, type_="compound",
                      length=length, score=score)
-
         assert v == "NA"
         rs = reverse_end(t)
         rt = reverse_end(s)
         assert (rs, v, rt) in compound_paths
         #dual_path[ (s, v, t) ] = (rs, v, rt)
         #dual_path[ (rs, v, rt) ] = (s, v, t)
+    time_compound_add_edges += [time.time()]
+    log_time('compound_add_edges', time_compound_add_edges)
 
     # remove short utg using local flow consistent rule
     r"""
@@ -1507,31 +1564,47 @@ def ovlp_to_graph(args):
            \__UTG_>__/
       <____/         \_____<
     """
+    time_short_edges_to_remove = [time.time()]
     short_edges_to_remove = identify_short_edges_to_remove(ug2, u_edge_data)
     for s, t, v in list(short_edges_to_remove):
         ug2.remove_edge(s, t, key=v)
         length, score, edges, type_ = u_edge_data[(s, t, v)]
         u_edge_data[(s, t, v)] = length, score, edges, "repeat_bridge"
+    time_short_edges_to_remove += [time.time()]
+    log_time('short_edges_to_remove', time_short_edges_to_remove)
 
     # Repeat the aggresive spur filtering with slightly larger spur length.
+    time_identify_spurs_2 = [time.time()]
     ug = identify_spurs(ug2, u_edge_data, 80000)
     print_edge_data(u_edge_data)
+    time_identify_spurs_2 += [time.time()]
+    log_time('identify_spurs-2', time_short_edges_to_remove)
 
     # contig construction from utgs
+    time_construct_c_path_from_utgs = [time.time()]
     c_path = construct_c_path_from_utgs(ug, u_edge_data, nxsg)
-
     # Sorting contig paths by length.
     c_path.sort(key=lambda x: -x[3])
+    time_construct_c_path_from_utgs += [time.time()]
+    log_time('construct_c_path_from_utgs', time_construct_c_path_from_utgs)
 
     # Construct the contigs (based on unitigs).
+    time_extract_contigs = [time.time()]
     contigs = extract_contigs(ug, u_edge_data, c_path, circular_path, args.ctg_prefix)
+    time_extract_contigs += [time.time()]
+    log_time('extract_contigs', time_extract_contigs)
 
     # Write contigs to file.
+    time_write_ctg_paths = [time.time()]
     with open('ctg_paths', 'w') as fp_out:
         for contig_tuple in contigs:
             fp_out.write(' '.join([str(val) for val in contig_tuple]))
             fp_out.write('\n')
+    time_write_ctg_paths += [time.time()]
+    log_time('ctg_paths', time_write_ctg_paths)
 
+    time_total += [time.time()]
+    log_time('TOTAL', time_total)
 
 class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
@@ -1595,7 +1668,7 @@ Outputs:
         help='Depth cutoff threshold (number of nodes) for bundle finding.')
 
     args = parser.parse_args(argv[1:])
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='%(msg)s')
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='[%(asctime)s %(levelname)s] %(msg)s', datefmt='%Y-%m-%d %H:%M:%S')
     ovlp_to_graph(args)
 
 

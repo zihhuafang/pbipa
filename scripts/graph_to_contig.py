@@ -17,12 +17,13 @@ After that the dedup_a_tigs.py script is used to deduplicate fake a_ctg.
 But that script is simple, and only depends on the alignment info that the previous script stored in the a_ctg header.
 """
 
+import os
 import argparse
 import logging
 import sys
 import networkx as nx
-from falcon_kit.io import open_progress
 import time
+import contextlib
 
 LOG = logging.getLogger(__name__)
 RCMAP = dict(list(zip("ACGTacgtNn-", "TGCAtgcaNn-")))
@@ -46,6 +47,92 @@ def reverse_end(node_id):
     new_end = "B" if end == "E" else "E"
     return node_id + ":" + new_end
 
+######################################################
+### The open_progress, Percenter and FilePercenter ###
+### were copied here from falcon_kit.io.           ###
+### The filesize was copied from pypeflow.io.      ###
+######################################################
+class Percenter(object):
+    """Report progress by golden exponential.
+
+    Usage:
+        counter = Percenter('mystruct', total_len(mystruct))
+
+        for rec in mystruct:
+            counter(len(rec))
+    """
+    def __init__(self, name, total, log=LOG.info, units='units'):
+        if sys.maxsize == total:
+            log('Counting {} from "{}"'.format(units, name))
+        else:
+            log('Counting {:,d} {} from\n  "{}"'.format(total, units, name))
+        self.total = total
+        self.log = log
+        self.name = name
+        self.units = units
+        self.call = 0
+        self.count = 0
+        self.next_count = 0
+        self.a = 1 # double each time
+    def __call__(self, more, label=''):
+        self.call += 1
+        self.count += more
+        if self.next_count <= self.count:
+            self.a = 2 * self.a
+            self.a = max(self.a, more)
+            self.a = min(self.a, (self.total-self.count), round(self.total/10.0))
+            self.next_count = self.count + self.a
+            if self.total == sys.maxsize:
+                msg = '{:>10} count={:15,d} {}'.format(
+                    '#{:,d}'.format(self.call), self.count, label)
+            else:
+                msg = '{:>10} count={:15,d} {:6.02f}% {}'.format(
+                    '#{:,d}'.format(self.call), self.count, 100.0*self.count/self.total, label)
+            self.log(msg)
+    def finish(self):
+        self.log('Counted {:,d} {} in {} calls from:\n  "{}"'.format(
+            self.count, self.units, self.call, self.name))
+
+
+def FilePercenter(fn, log=LOG.info):
+    if '-' == fn or not fn:
+        size = sys.maxsize
+    else:
+        size = filesize(fn)
+        if fn.endswith('.dexta'):
+            size = size * 4
+        elif fn.endswith('.gz'):
+            size = sys.maxsize # probably 2.8x to 3.2x, but we are not sure, and higher is better than lower
+            # https://stackoverflow.com/a/22348071
+            # https://jira.pacificbiosciences.com/browse/TAG-2836
+    return Percenter(fn, size, log, units='bytes')
+
+@contextlib.contextmanager
+def open_progress(fn, mode='r', log=LOG.info):
+    """
+    Usage:
+        with open_progress('foo', log=LOG.info) as stream:
+            for line in stream:
+                use(line)
+
+    That will log progress lines.
+    """
+    def get_iter(stream, progress):
+        for line in stream:
+            progress(len(line))
+            yield line
+
+    fp = FilePercenter(fn, log=log)
+    with open(fn, mode=mode) as stream:
+        yield get_iter(stream, fp)
+    fp.finish()
+
+def filesize(fn):
+    """In bytes.
+    Raise if fn does not exist.
+    """
+    return os.stat(fn).st_size
+######################################################
 
 def yield_first_seq(one_path_edges, seqs):
     if one_path_edges and one_path_edges[0][0] != one_path_edges[-1][1]:

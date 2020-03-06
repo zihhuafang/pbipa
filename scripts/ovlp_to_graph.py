@@ -877,14 +877,14 @@ def identify_branch_nodes(ug):
 
     return branch_nodes
 
-def construct_compound_paths_0(ug, u_edge_data, branch_nodes):
+def construct_compound_paths_0(ug, u_edge_data, branch_nodes, depth_cutoff, width_cutoff, length_cutoff):
     no_out_edge_printed = set()
 
     compound_paths_0 = []
     for p in list(branch_nodes):
         if ug.out_degree(p) > 1:
             coverage, data, data_r = find_bundle(
-                ug, u_edge_data, p, 48, 16, 500000, no_out_edge_printed)
+                ug, u_edge_data, p, depth_cutoff, width_cutoff, length_cutoff, no_out_edge_printed)
             if coverage == True:
                 start_node, end_node, bundle_edges, length, score, depth = data
                 compound_paths_0.append(
@@ -972,11 +972,11 @@ def construct_compound_paths_3(ug, compound_paths_2, edge_to_cpath):
             LOG.debug(f"compound {k}")
     return compound_paths_3
 
-def construct_compound_paths(ug, u_edge_data):
+def construct_compound_paths(ug, u_edge_data, depth_cutoff, width_cutoff, length_cutoff):
 
     branch_nodes = identify_branch_nodes(ug)
 
-    compound_paths_0 = construct_compound_paths_0(ug, u_edge_data, branch_nodes)
+    compound_paths_0 = construct_compound_paths_0(ug, u_edge_data, branch_nodes, depth_cutoff, width_cutoff, length_cutoff)
     compound_paths_1 = construct_compound_paths_1(compound_paths_0)
     compound_paths_2, edge_to_cpath = construct_compound_paths_2(compound_paths_1)
     compound_paths_3 = construct_compound_paths_3(ug, compound_paths_2, edge_to_cpath)
@@ -1479,7 +1479,7 @@ def ovlp_to_graph(args):
     ug2 = remove_dup_simple_path(ug2, u_edge_data)
 
     # phase 2, finding all "consistent" compound paths
-    compound_paths = construct_compound_paths(ug2, u_edge_data)
+    compound_paths = construct_compound_paths(ug2, u_edge_data, args.depth_cutoff, args.width_cutoff, args.length_cutoff)
     edges_to_remove = identify_edges_to_remove(compound_paths, ug2)
     for s, t, v in edges_to_remove:
         ug2.remove_edge(s, t, v)
@@ -1582,6 +1582,17 @@ Outputs:
     parser.add_argument(
         '--ctg-prefix', default='',
         help='Prefix for contig names.')
+
+
+    parser.add_argument(
+        '--depth-cutoff', type=int, default=48,
+        help='Depth cutoff threshold (number of nodes) for bundle finding.')
+    parser.add_argument(
+        '--width-cutoff', type=int, default=16,
+        help='Width cutoff threshold (number of nodes) for bundle finding.')
+    parser.add_argument(
+        '--length-cutoff', type=int, default=500000,
+        help='Depth cutoff threshold (number of nodes) for bundle finding.')
 
     args = parser.parse_args(argv[1:])
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format='%(msg)s')

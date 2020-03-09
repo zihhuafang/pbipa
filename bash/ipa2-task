@@ -48,9 +48,19 @@ function build_db {
     #
     # Outputs:
     #   {db_prefix}.rdb
+    #   input.fofn
 
     helper_load_config ${params_config_sh_fn}
     local params_block_size=${block_size}
+
+    # Create a FOFN of input sequences, even if the input is a
+    # plain single sequence file.
+    local input_reads_ext=${input_reads_fn##*.}
+    if [[ "${input_reads_ext}" -eq "fofn" ]]; then
+        cp ${input_reads_fn} input.fofn 
+    else
+        echo "${input_reads_fn}" > input.fofn
+    fi
 
     # If the user specified a DB prefix, just symlink it.    
     if [[ -z "${existing_db_prefix}" ]]; then

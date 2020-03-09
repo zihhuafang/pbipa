@@ -68,6 +68,7 @@ rule build_db:
         seeddb = "build_db/reads.seeddb",
         seqdb_seqs = "build_db/reads.seqdb.0.seq",
         seeddb_seeds = "build_db/reads.seeddb.0.seeds",
+        input_fofn = "build_db/input.fofn",
     input:
         reads_fn = READS_FN,
         config_sh_fn = rules.generate_config.output.config,

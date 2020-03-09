@@ -149,8 +149,8 @@ function phasing_prepare {
     # Parameters:
     #   params_num_blocks
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_prepare.polyphase_split.memtime \
-    polyphase split --nFiles ${params_num_blocks} chunk ${input_m4}
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_prepare.nighthawk_split.memtime \
+    nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
 }
 
 function phasing_run {
@@ -170,8 +170,8 @@ function phasing_run {
         opt_use_seq_ids="--alias"
     fi
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_run.polyphase_phase.memtime \
-    polyphase phase ${opt_use_seq_ids} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_run.nighthawk_phase.memtime \
+    nighthawk phase ${opt_use_seq_ids} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
 function phasing_merge {
@@ -186,8 +186,8 @@ function phasing_merge {
     cat ${input_keep_fofn} | xargs cat > all.keep.m4
     cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_merge.polyphase_symmetrical.memtime \
-    polyphase symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_merge.nighthawk_symmetrical.memtime \
+    nighthawk symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
 }
 
 function ovl_filter {

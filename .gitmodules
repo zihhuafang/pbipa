@@ -4,6 +4,6 @@
 [submodule "modules/falconc"]
 	path = modules/falconc
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/falconc.git
-[submodule "modules/polyphase"]
-	path = modules/polyphase
-	url = ssh://git@bitbucket.nanofluidics.com:7999/~zkronenberg/polyphase.git
+[submodule "modules/nighthawk"]
+	path = modules/nighthawk
+	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/nighthawk.git

@@ -64,10 +64,10 @@ function build_db {
 
     # If the user specified a DB prefix, just symlink it.
     if [[ -z "${existing_db_prefix}" ]]; then
-        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
+        # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
         pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
 
-        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seeddb.memtime \
+        # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seeddb.memtime \
         /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
     else
         ln -sf ${existing_db_prefix}.seqdb ${params_db_prefix}.seqdb
@@ -121,10 +121,10 @@ function ovl_asym_run {
         opt_use_seq_ids="--write-ids"
     fi
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.pancake.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.pancake.memtime \
     pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.sort.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
 }
 
@@ -142,7 +142,7 @@ function ovl_asym_merge {
     done < ${input_fofn}
 
     # Merge sort.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.mergesort.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.mergesort.memtime \
     sort -k1,1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
     echo ovl.merged.m4 > ovl.merged.fofn
 
@@ -159,7 +159,7 @@ function phasing_prepare {
     # Parameters:
     #   params_num_blocks
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_prepare.nighthawk_split.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_prepare.nighthawk_split.memtime \
     nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
 }
 
@@ -180,7 +180,7 @@ function phasing_run {
         opt_use_seq_ids="--alias"
     fi
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_run.nighthawk_phase.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_run.nighthawk_phase.memtime \
     nighthawk phase ${opt_use_seq_ids} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
@@ -196,7 +196,7 @@ function phasing_merge {
     cat ${input_keep_fofn} | xargs cat > all.keep.m4
     cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_merge.nighthawk_symmetrical.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_merge.nighthawk_symmetrical.memtime \
     nighthawk symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
 }
 
@@ -215,11 +215,11 @@ function ovl_filter {
     echo ${input_m4} > ovl.fofn
 
     # Filter.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
     falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${ovl_filter_opt} --filter-log m4-readfilt.log
 
     # Containment removal.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
     falconc m4filt-contained --min-idt ${ovl_min_idt} --min-len ${ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
 }
 
@@ -242,14 +242,14 @@ function assemble {
     export PYTHONHASHSEED=2147483647
 
     # Run the assembly.
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
     python3 ${IPA2_WORKSPACE}/scripts/ovlp_to_graph.py --depth-cutoff 20000 --width-cutoff 30000 --length-cutoff 15000000 --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     local opt_use_seq_ids=""
     if [[ ${use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
     fi
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
     python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
@@ -268,7 +268,7 @@ function assemble {
     fi
 
     # Given a_ctg_all.fasta, write a_ctg.fasta:
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tigs.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tigs.memtime \
     # python3 -m falcon_kit.mains.dedup_a_tigs >| a_ctg.fasta
     touch a_ctg.fasta
 
@@ -277,7 +277,7 @@ function assemble {
     fi
 
     # Given a_ctg.fasta and a_ctg_all_tiling_path, write a_ctg_tiling_path:
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tph.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tph.memtime \
     # python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
     touch a_ctg_tiling_path
 }
@@ -320,10 +320,10 @@ function build_contig_db {
 
     helper_load_config ${params_config_sh_fn}
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seqdb.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seqdb.memtime \
     pancake seqdb --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
-    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seeddb.memtime \
+    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seeddb.memtime \
     /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 }
 
@@ -364,7 +364,7 @@ function map_all_run {
 
     num_target_blocks=$(awk '/^B/{count++}END{print count}' "${input_target_seqdb}")
     for ((target_block=0;target_block<num_target_blocks;target_block++)); do
-        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.map_all_run.pancake.tblock_${target_block}.memtime \
+        # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.map_all_run.pancake.tblock_${target_block}.memtime \
         pancake ovl-hifi --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${ovl_opt_erc} --log-level=INFO ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
     done > mapped.m4
 }

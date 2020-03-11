@@ -42,27 +42,27 @@ function generate_config_ccs {
 }
 
 function build_db {
-    # These are explicit inputs:
+    # Inputs:
+    #   input_reads_fn
+    # Params:
     #   params_db_prefix
     #   params_config_sh_fn
-    #
     # Outputs:
     #   {db_prefix}.rdb
     #   input.fofn
 
     helper_load_config ${params_config_sh_fn}
-    local params_block_size=${block_size}
 
     # Create a FOFN of input sequences, even if the input is a
     # plain single sequence file.
     local input_reads_ext=${input_reads_fn##*.}
-    if [[ "${input_reads_ext}" -eq "fofn" ]]; then
-        cp ${input_reads_fn} input.fofn 
+    if [[ \"${input_reads_ext}\" -eq "fofn" ]]; then
+        cp ${input_reads_fn} input.fofn
     else
         echo "${input_reads_fn}" > input.fofn
     fi
 
-    # If the user specified a DB prefix, just symlink it.    
+    # If the user specified a DB prefix, just symlink it.
     if [[ -z "${existing_db_prefix}" ]]; then
         /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
         pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
@@ -123,7 +123,7 @@ function ovl_asym_run {
 
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.pancake.memtime \
     pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
-    
+
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
 }
@@ -304,7 +304,84 @@ function get_gfa {
 
     # Output the contig graph with associate contigs attached to each primary contig.
     time python3 -m falcon_kit.mains.gen_gfa_v2 contig.gfa.json >| contig.gfa2
+}
 
+function build_contig_db {
+    # Inputs:
+    #   input_p_ctg_fasta
+    #   input_a_ctg_fasta
+    # Params:
+    #   params_db_prefix
+    #   params_config_sh_fn
+    # Outputs:
+    #   {db_prefix}.rdb
+
+    helper_load_config ${params_config_sh_fn}
+
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seqdb.memtime \
+    pancake seqdb --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+
+    /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seeddb.memtime \
+    /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+}
+
+function map_all_prepare {
+    # Input:
+    #   input_db
+    # Output:
+    #   *.txt in cwd
+    #   ${output_blocks} (same info in 1 file)
+
+    num_blocks=$(awk '/^B/{count++}END{print count}' "${input_db}")
+    for ((block1=0;block1<num_blocks;block1++)); do
+        echo $block1 > $block1.txt
+        echo ${block1}
+    done > ${output_blocks}
+
+    if [[ ! -s ${output_blocks} ]]; then
+        echo "0" > ${output_blocks}
+    fi
+}
+
+function map_all_run {
+    # Inputs:
+    #   input_target_seqdb
+    #   input_query_seqdb
+    # Params:
+    #   params_query_block_id
+    #   params_num_threads
+    #   params_config_sh_fn
+
+    helper_load_config ${params_config_sh_fn}
+
+    local local_target_db_prefix=${input_target_seqdb%.*}
+    local local_query_db_prefix=${input_query_seqdb%.*}
+    local local_last_query_block=$((params_query_block_id + 1))
+
+    local opt_use_seq_ids=""
+
+    num_target_blocks=$(awk '/^B/{count++}END{print count}' "${input_target_seqdb}")
+    for ((target_block=0;target_block<num_target_blocks;target_block++)); do
+        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.map_all_run.pancake.tblock_${target_block}.memtime \
+        pancake ovl-hifi --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${ovl_opt_erc} --log-level=INFO ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
+    done > mapped.m4
+}
+
+function map_all_merge {
+    # Explicit inputs:
+    #   input_fofn
+    # Params:
+    #   params_config_sh_fn
+    helper_load_config ${params_config_sh_fn}
+
+    # Sanity check.
+    cat ${input_fofn}
+    while read fn; do
+        ls -lH ${fn}
+    done < ${input_fofn}
+
+    # Merge.
+    cat ${input_fofn} | xargs cat > mapped.merged.m4
 }
 
 function help {
@@ -341,6 +418,10 @@ case $1 in
   |phasing_merge \
   |assemble \
   |get_gfa \
+  |build_contig_db \
+  |map_all_prepare \
+  |map_all_merge \
+  |map_all_run \
 )
     set -vexu -o pipefail
     $*

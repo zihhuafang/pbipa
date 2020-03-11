@@ -269,7 +269,8 @@ function assemble {
 
     # Given a_ctg_all.fasta, write a_ctg.fasta:
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tigs.memtime \
-    python3 -m falcon_kit.mains.dedup_a_tigs >| a_ctg.fasta
+    # python3 -m falcon_kit.mains.dedup_a_tigs >| a_ctg.fasta
+    touch a_ctg.fasta
 
     if [[ -s a_ctg.fasta ]]; then
         samtools faidx a_ctg.fasta
@@ -277,7 +278,8 @@ function assemble {
 
     # Given a_ctg.fasta and a_ctg_all_tiling_path, write a_ctg_tiling_path:
     /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tph.memtime \
-    python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
+    # python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
+    touch a_ctg_tiling_path
 }
 
 function get_gfa {

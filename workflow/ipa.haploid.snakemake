@@ -218,9 +218,9 @@ rule assemble:
             time ipa2-task assemble
     """
 
-#################
-### Polishing ###
-#################
+######################
+### Read tracking. ###
+######################
 rule build_contig_db:
     output:
         seqdb = "build_contig_db/contigs.seqdb",
@@ -299,6 +299,7 @@ rule map_all_run:
 rule map_all_merge:
     output:
         merged_mapped = "map_all_merge/mapped.merged.m4",
+        read_to_contig = "map_all_merge/read_to_contig.csv",
     input:
         fns = gathered_map_all_m4,
         config_sh_fn = rules.generate_config.output.config,
@@ -321,7 +322,88 @@ rule map_all_merge:
             time ipa2-task map_all_merge
     """
 
+#################
+### Polishing ###
+#################
+checkpoint polish_prepare:
+    output:
+        blockdir = directory('polish_prepare/block_ids')
+    input:
+        read_to_contig = rules.map_all_merge.output.read_to_contig
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        input_read_to_contig="$rel/{input.read_to_contig}" \
+        output_blocks=./blocks \
+            time ipa2-task polish_prepare
+    """
+def gathered_polish(wildcards):
+    checkpoint_output = checkpoints.polish_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids_polish = glob_wildcards(os.path.join(checkpoint_output, "block_id.{block_id_polish}.reads")).block_id_polish
+    return expand("polish_run/{block_id_polish}/consensus.fasta",
+            block_id_polish=block_ids_polish)
+
+rule polish_run:
+    output:
+        consensus = "polish_run/{block_id_polish}/consensus.fasta",
+    input:
+        input_fofn = rules.build_db.output.input_fofn,
+        p_ctg_fasta = rules.assemble.output.p_ctg_fa,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fa,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+        reads_to_contig_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.reads"),
+        ctg_id_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.ctg_id"),
+    shell: """
+        echo "block_id={wildcards.block_id_polish}"
+        wd=$(dirname {output.consensus})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        input_fofn="$rel/{input.input_fofn}" \
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
+        output_consensus_fn=$(basename {output.consensus}) \
+        params_reads_to_contig_fn="$rel/{params.reads_to_contig_fn}" \
+        params_ctg_id_fn="$rel/{params.ctg_id_fn}" \
+        params_block_id={wildcards.block_id_polish} \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task polish_run
+    """
+
+rule polish_merge:
+    output:
+        consensus_merged = "polish_merge/consensus.merged.fasta",
+    input:
+        fns = gathered_polish,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.consensus_merged})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        params_num_threads="{params.num_threads}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task polish_merge
+    """
+
 rule finish:
     input:
         rules.assemble.output.p_ctg_fa,
         rules.map_all_merge.output.merged_mapped,
+        rules.polish_merge.output.consensus_merged,

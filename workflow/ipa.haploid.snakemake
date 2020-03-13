@@ -17,6 +17,7 @@ OVL_MIN_IDT = config['ovl_min_idt']
 OVL_MIN_LEN = config['ovl_min_len']
 OVL_FILTER_OPT = config['ovl_filter_opt']
 USE_SEQ_IDS = config['use_seq_ids']
+POLISH = config['polish']
 
 if not os.path.isabs(READS_FN):
     READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
@@ -42,6 +43,7 @@ rule generate_config:
         ovl_min_len = OVL_MIN_LEN,
         ovl_filter_opt = OVL_FILTER_OPT,
         use_seq_ids = USE_SEQ_IDS,
+        polish = POLISH,
     shell: """
         mkdir -p generate_config
         cd generate_config
@@ -59,6 +61,7 @@ rule generate_config:
         params_ovl_min_len="{params.ovl_min_len}" \
         params_ovl_filter_opt="{params.ovl_filter_opt}" \
         params_use_seq_ids="{params.use_seq_ids}" \
+        params_polish="{params.polish}" \
             time ipa2-task generate_config_ccs
     """
 
@@ -193,6 +196,8 @@ rule assemble:
         a_ctg_fa = "assemble/a_ctg.fasta",
         p_ctg_tiling_path = "assemble/p_ctg_tiling_path",
         a_ctg_tiling_path = "assemble/a_ctg_tiling_path",
+        p_ctg_fa_fai = "assemble/p_ctg.fasta.fai",
+        a_ctg_fa_fai = "assemble/a_ctg.fasta.fai",
 #        asm_gfa = "assemble/asm.gfa",
 #        sg_gfa = "assemble/sg.gfa",
 #        contig_gfa2 = "assemble/contig.gfa2",
@@ -249,6 +254,7 @@ checkpoint map_all_prepare:
     input:
         contig_seqdb = rules.build_contig_db.output.seqdb,
         reads_seqdb = rules.build_db.output.seqdb,
+        config_sh_fn = rules.generate_config.output.config,
     shell: """
         rm -f {output.blockdir}
         mkdir -p {output.blockdir}
@@ -257,6 +263,7 @@ checkpoint map_all_prepare:
 
         input_db="$rel/{input.reads_seqdb}" \
         output_blocks=./blocks \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task map_all_prepare
     """
 
@@ -329,7 +336,13 @@ checkpoint polish_prepare:
     output:
         blockdir = directory('polish_prepare/block_ids')
     input:
-        read_to_contig = rules.map_all_merge.output.read_to_contig
+        read_to_contig = rules.map_all_merge.output.read_to_contig,
+        config_sh_fn = rules.generate_config.output.config,
+        # The p_ctg and a_ctg FASTA files are needed to enable the
+        # config 'polish' option to skip polishing. If polishing is skipped
+        # then the output "polished" contigs will be just the draft sequences.
+        p_ctg_fasta_fai = rules.assemble.output.p_ctg_fa_fai,
+        a_ctg_fasta_fai = rules.assemble.output.a_ctg_fa_fai,
     shell: """
         rm -f {output.blockdir}
         mkdir -p {output.blockdir}
@@ -337,7 +350,10 @@ checkpoint polish_prepare:
         rel=../..
 
         input_read_to_contig="$rel/{input.read_to_contig}" \
+        input_p_ctg_fasta_fai="$rel/{input.p_ctg_fasta_fai}" \
+        input_a_ctg_fasta_fai="$rel/{input.a_ctg_fasta_fai}" \
         output_blocks=./blocks \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task polish_prepare
     """
 def gathered_polish(wildcards):
@@ -379,7 +395,7 @@ rule polish_run:
 
 rule polish_merge:
     output:
-        consensus_merged = "polish_merge/consensus.merged.fasta",
+        consensus_merged = "polish_merge/assembly.merged.fasta",
     input:
         fns = gathered_polish,
         config_sh_fn = rules.generate_config.output.config,
@@ -397,13 +413,38 @@ rule polish_merge:
         done >| ./merged.fofn
 
         input_fofn=./merged.fofn \
+        output_fasta=$(basename {output.consensus_merged}) \
         params_num_threads="{params.num_threads}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task polish_merge
     """
 
+rule final:
+    output:
+        assembly_final_fasta = "final/assembly.final.fasta",
+        p_ctg_fasta = "final/draft.p_ctg.fasta",
+        a_ctg_fasta = "final/draft.a_ctg.fasta",
+    input:
+        assembly_merged_fasta = rules.polish_merge.output.consensus_merged,
+        p_ctg_fasta = rules.assemble.output.p_ctg_fa,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fa,
+    shell: """
+        wd=$(dirname {output.assembly_final_fasta})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_assembly_merged_fasta="$rel/{input.assembly_merged_fasta}" \
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
+        output_assembly_final_fasta=$(basename {output.assembly_final_fasta}) \
+        output_p_ctg_fasta=$(basename {output.p_ctg_fasta}) \
+        output_a_ctg_fasta=$(basename {output.a_ctg_fasta}) \
+            time ipa2-task final_collect
+    """
+
 rule finish:
     input:
-        rules.assemble.output.p_ctg_fa,
-        rules.map_all_merge.output.merged_mapped,
-        rules.polish_merge.output.consensus_merged,
+        rules.final.output.assembly_final_fasta,
+        rules.final.output.p_ctg_fasta,
+        rules.final.output.a_ctg_fasta,

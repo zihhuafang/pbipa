@@ -51,6 +51,7 @@ function generate_config_ccs {
     echo "ovl_min_len=${params_ovl_min_len}" >> config.sh
     echo "ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
     echo "use_seq_ids=${params_use_seq_ids}" >> config.sh
+    echo "config_polish=${params_polish}" >> config.sh
 }
 
 IPA_TIME() {
@@ -290,12 +291,14 @@ function assemble {
         ls -larth
         touch circular_contigs.csv
         touch p_ctg.fasta.stats
+        touch p_ctg.fasta.fai
     fi
 
     # Given a_ctg_all.fasta, write a_ctg.fasta:
     # IPA_TIME log.assemble.dedup_a_tigs.memtime \
     # python3 -m falcon_kit.mains.dedup_a_tigs >| a_ctg.fasta
     touch a_ctg.fasta
+    touch a_ctg.fasta.fai
 
     if [[ -s a_ctg.fasta ]]; then
         samtools faidx a_ctg.fasta
@@ -345,28 +348,46 @@ function build_contig_db {
 
     helper_load_config ${params_config_sh_fn}
 
-    IPA_TIME log.build_contig_db.seqdb.memtime \
-    pancake seqdb --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+    # Only run this stage if the polishing level is > 0.
+    if [[ ${config_polish} -ge 1 ]]; then
+        IPA_TIME log.build_contig_db.seqdb.memtime \
+        pancake seqdb --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
-    IPA_TIME log.build_contig_db.seeddb.memtime \
-    pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        IPA_TIME log.build_contig_db.seeddb.memtime \
+        pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+    else
+        touch ${params_db_prefix}.seqdb
+        touch ${params_db_prefix}.seqdb.0.seq
+        touch ${params_db_prefix}.seeddb
+        touch ${params_db_prefix}.seeddb.0.seeds
+    fi
 }
 
 function map_all_prepare {
     # Input:
     #   input_db
+    # Params:
+    #   params_config_sh_fn
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
 
-    num_blocks=$(awk '/^B/{count++}END{print count}' "${input_db}")
-    for ((block1=0;block1<num_blocks;block1++)); do
-        echo $block1 > $block1.txt
-        echo ${block1}
-    done > ${output_blocks}
+    helper_load_config ${params_config_sh_fn}
+
+    # Only run splitting if the polishing level is > 0.
+    if [[ ${config_polish} -ge 1 ]]; then
+        num_blocks=$(awk '/^B/{count++}END{print count}' "${input_db}")
+        for ((block1=0;block1<num_blocks;block1++)); do
+            echo $block1 > $block1.txt
+            echo ${block1}
+        done > ${output_blocks}
+    else
+        # Create a dummy output file so that "map_all_run" will run.
+        touch 0.txt
+    fi
 
     if [[ ! -s ${output_blocks} ]]; then
-        echo "0" > ${output_blocks}
+        touch ${output_blocks}
     fi
 }
 
@@ -378,6 +399,9 @@ function map_all_run {
     #   params_query_block_id
     #   params_num_threads
     #   params_config_sh_fn
+
+    ### Note: no need to specially check for ${config_polish} here, because
+    ### mapping will come up empty since there are zero target blocks.
 
     helper_load_config ${params_config_sh_fn}
 
@@ -401,6 +425,10 @@ function map_all_merge {
     #   params_config_sh_fn
     helper_load_config ${params_config_sh_fn}
 
+    ### Note: no need to specially check for ${config_polish} here, because
+    ### there will be only one dummy mapped.m4 in block 0, and that's empty.
+    ### Also, because of this, the read_to_contig.csv will be empty.
+
     # Sanity check.
     cat ${input_fofn}
     while read fn; do
@@ -417,15 +445,33 @@ function map_all_merge {
 function polish_prepare {
     # Input:
     #   input_read_to_contig
+    #   input_p_ctg_fasta_fai
+    #   input_a_ctg_fasta_fai
+    # Params:
+    #   params_config_sh_fn
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
+    helper_load_config ${params_config_sh_fn}
 
-    IPA_TIME log.polish_prepare.sort_read_to_contig.memtime \
-    sort -k2,2 ${input_read_to_contig} > sorted.read_to_contig.csv
+    # Only run splitting if the polishing level is > 0.
+    if [[ ${config_polish} -ge 1 ]]; then
+        IPA_TIME log.polish_prepare.sort_read_to_contig.memtime \
+        sort -k2,2 ${input_read_to_contig} > sorted.read_to_contig.csv
 
-    IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
-    awk 'BEGIN { prev = ""; count = 0} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
+        IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
+        awk 'BEGIN { prev = ""; count = 0} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
+    else
+        touch sorted.read_to_contig.csv
+
+        num_ctg=0
+        for ctg in $(cut -f1,1 ${input_p_ctg_fasta_fai} ${input_a_ctg_fasta_fai})
+        do
+            touch block_id.${num_ctg}.reads
+            echo ${ctg} > block_id.${num_ctg}.ctg_id
+            num_ctg=$((num_ctg + 1))
+        done
+    fi
 }
 
 function polish_run {
@@ -444,79 +490,93 @@ function polish_run {
 
     helper_load_config ${params_config_sh_fn}
 
-    # Extract the contig sequence.
-    # The a_ctg.fasta file can be empty, in which case the .fai file does not exist
-    draft_fn="draft.fasta"
-    samtools faidx ${input_p_ctg_fasta} -r ${params_ctg_id_fn} --continue > ${draft_fn}
-    if [[ -s ${input_a_ctg_fasta}.fai ]]; then
-        samtools faidx ${input_a_ctg_fasta} -r ${params_ctg_id_fn} --continue >> ${draft_fn}
-    fi
+    # Only run if the polishing level is > 0.
+    if [[ ${config_polish} -ge 1 ]]; then
+        # Extract the contig sequence.
+        # The a_ctg.fasta file can be empty, in which case the .fai file does not exist
+        draft_fn="draft.fasta"
+        samtools faidx ${input_p_ctg_fasta} -r ${params_ctg_id_fn} --continue > ${draft_fn}
+        if [[ -s ${input_a_ctg_fasta}.fai ]]; then
+            samtools faidx ${input_a_ctg_fasta} -r ${params_ctg_id_fn} --continue >> ${draft_fn}
+        fi
 
-    ###################################################################
-    ### This finds the actual extension of the input files          ###
-    ### in the FOFN. It's important because we need to extract      ###
-    ### the sequences, and if the input is FASTQ, Racon can         ###
-    ### leverage the quality values. Otherwise, it also supports    ###
-    ### FASTA.                                                      ###
-    ### This block handles both .fasta(.gz) and .fastq(.gz) inputs. ###
-    ### It ensures that all reads are in the same format.           ###
-    ###################################################################
-    for fn in $(cat ${input_fofn})
-    do
-        # Remove the tailing .gz if it's there, and get the extension.
-        # local fn_ext=$(echo ${fn} | sed -E 's/^(.*)\.gz$/\1/g' | tr . \\n | tail -n 1)
-        echo ${fn} | sed -E 's/^(.*)\.gz$/\1/g' | tr . \\n | tail -n 1
-    done > extensions.txt
-    sort extensions.txt | uniq -c > extensions.uniq.txt
-    # Get the total number of different extensions. Awk is here just to enable portability (wc is different on Mac and Linux).
-    local num_ext=$(wc -l extensions.uniq.txt | awk '{ print $1 }')
-    if [[ ${num_ext} -ne 1 ]]; then
-        echo "All input reads files must be in the same format.!"
-        return 1
-    fi
-    local actual_ext=$(head -n 1 extensions.uniq.txt | awk '{ e = tolower($2); if (e == "fasta" || e == "fa") { print "fasta"} else if (e == "fastq" || e == "fq") { print "fastq"} else { print "unknown" } }')
-    ###########################################################
-
-    # Extract the reads. It depends if the input is in FASTA or FASTQ, because
-    # of Samtools' faidx and fqidx.
-    if [[ ${actual_ext} == "fasta" ]]; then
-        # Use the "faidx" tool.
-        reads_fn="reads.fasta"
+        ###################################################################
+        ### This finds the actual extension of the input files          ###
+        ### in the FOFN. It's important because we need to extract      ###
+        ### the sequences, and if the input is FASTQ, Racon can         ###
+        ### leverage the quality values. Otherwise, it also supports    ###
+        ### FASTA.                                                      ###
+        ### This block handles both .fasta(.gz) and .fastq(.gz) inputs. ###
+        ### It ensures that all reads are in the same format.           ###
+        ###################################################################
         for fn in $(cat ${input_fofn})
         do
-            samtools faidx ${fn} -r ${params_reads_to_contig_fn} --continue
-        done > ${reads_fn}
-    elif [[ ${actual_ext} == "fastq" ]]; then
-        # Use the "fqidx" tool.
-        reads_fn="reads.fastq"
-        for fn in $(cat ${input_fofn})
-        do
-            samtools fqidx ${fn} -r ${params_reads_to_contig_fn} --continue
-        done > ${reads_fn}
+            # Remove the tailing .gz if it's there, and get the extension.
+            # local fn_ext=$(echo ${fn} | sed -E 's/^(.*)\.gz$/\1/g' | tr . \\n | tail -n 1)
+            echo ${fn} | sed -E 's/^(.*)\.gz$/\1/g' | tr . \\n | tail -n 1
+        done > extensions.txt
+        sort extensions.txt | uniq -c > extensions.uniq.txt
+        # Get the total number of different extensions. Awk is here just to enable portability (wc is different on Mac and Linux).
+        local num_ext=$(wc -l extensions.uniq.txt | awk '{ print $1 }')
+        if [[ ${num_ext} -ne 1 ]]; then
+            echo "All input reads files must be in the same format.!"
+            return 1
+        fi
+        local actual_ext=$(head -n 1 extensions.uniq.txt | awk '{ e = tolower($2); if (e == "fasta" || e == "fa") { print "fasta"} else if (e == "fastq" || e == "fq") { print "fastq"} else { print "unknown" } }')
+        ###########################################################
+
+        # Extract the reads. It depends if the input is in FASTA or FASTQ, because
+        # of Samtools' faidx and fqidx.
+        if [[ ${actual_ext} == "fasta" ]]; then
+            # Use the "faidx" tool.
+            reads_fn="reads.fasta"
+            for fn in $(cat ${input_fofn})
+            do
+                samtools faidx ${fn} -r ${params_reads_to_contig_fn} --continue
+            done > ${reads_fn}
+        elif [[ ${actual_ext} == "fastq" ]]; then
+            # Use the "fqidx" tool.
+            reads_fn="reads.fastq"
+            for fn in $(cat ${input_fofn})
+            do
+                samtools fqidx ${fn} -r ${params_reads_to_contig_fn} --continue
+            done > ${reads_fn}
+        else
+            echo "Unknown extension of one or more of the input files."
+            return 1
+        fi
+
+        # Map and filter.
+        IPA_TIME log.polish_run.pbmm2.memtime \
+        pbmm2 align --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
+
+        IPA_TIME log.polish_run.falconc_bam_filter.memtime \
+        falconc bam-filter-clipped -t -F 0x704 --input-fn:- --output-fn aln.sam --output-count-fn filtered_aln_count.txt < aln.unfiltered.bam
+
+        # The filtered_aln_count.txt is generated by `falconc bam-filter-clipped`.
+        local is_good=$(cat filtered_aln_count.txt)
+        if [ ${is_good} -eq "0" ]; then
+            # There are no records in the SAM file. Create an empty output file.
+            touch ${output_consensus_fn}
+        else
+            IPA_TIME log.polish_run.racon.memtime \
+            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} > ${output_consensus_fn}
+        fi
+
+        # Cleanup
+        rm -f *.bam *.sam *.fastq
     else
-        echo "Unknown extension of one or more of the input files."
-        return 1
+        # Extract the draft contig sequence and report it as the output.
+        # It will then be collected in polish_merge.
+        draft_fn=${output_consensus_fn}
+        samtools faidx ${input_p_ctg_fasta} -r ${params_ctg_id_fn} --continue > ${draft_fn}
+        if [[ -s ${input_a_ctg_fasta}.fai ]]; then
+            samtools faidx ${input_a_ctg_fasta} -r ${params_ctg_id_fn} --continue >> ${draft_fn}
+        fi
+
+        # Touch a dummy output file.
+        # touch ${output_consensus_fn}
     fi
-
-    # Map and filter.
-    IPA_TIME log.polish_run.pbmm2.memtime \
-    pbmm2 align --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
-
-    IPA_TIME log.polish_run.falconc_bam_filter.memtime \
-    falconc bam-filter-clipped -t -F 0x704 --input-fn:- --output-fn aln.sam --output-count-fn filtered_aln_count.txt < aln.unfiltered.bam
-
-    # The filtered_aln_count.txt is generated by `falconc bam-filter-clipped`.
-    local is_good=$(cat filtered_aln_count.txt)
-    if [ ${is_good} -eq "0" ]; then
-        # There are no records in the SAM file. Create an empty output file.
-        touch ${output_consensus_fn}
-    else
-        IPA_TIME log.polish_run.racon.memtime \
-        racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} > ${output_consensus_fn}
-    fi
-
-    # Cleanup
-    rm -f *.bam *.sam *.fastq
 }
 
 function polish_merge {
@@ -524,6 +584,8 @@ function polish_merge {
     #   input_fofn
     # Params:
     #   params_config_sh_fn
+    # Output:
+    #   output_fasta
     helper_load_config ${params_config_sh_fn}
 
     # Sanity check.
@@ -533,7 +595,22 @@ function polish_merge {
     done < ${input_fofn}
 
     # Merge.
-    cat ${input_fofn} | xargs cat > consensus.merged.fasta
+    cat ${input_fofn} | xargs cat > ${output_fasta}
+}
+
+function final_collect {
+    # Inputs:
+    #   input_assembly_merged_fasta
+    #   input_p_ctg_fasta
+    #   input_a_ctg_fasta
+    # Outputs:
+    #   output_assembly_final_fasta
+    #   output_p_ctg_fasta
+    #   output_a_ctg_fasta
+
+    ln -sf ${input_assembly_merged_fasta} ${output_assembly_final_fasta}
+    ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}
+    ln -sf ${input_a_ctg_fasta} ${output_a_ctg_fasta}
 }
 
 function help {
@@ -577,6 +654,7 @@ case $1 in
   |polish_prepare \
   |polish_run \
   |polish_merge \
+  |final_collect \
 )
     set -vexu -o pipefail
     $*

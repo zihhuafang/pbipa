@@ -12,6 +12,18 @@ function which {
     which "$1"
 }
 
+# Discover the machine type, so we can automatically use
+# the /usr/bin/time tool to get more accurate timings when on Linux.
+uname_out="$(uname -s)"
+case "${uname_out}" in
+    Linux*)     MACHINE=Linux;;
+    Darwin*)    MACHINE=Mac;;
+    CYGWIN*)    MACHINE=Cygwin;;
+    MINGW*)     MACHINE=MinGw;;
+    *)          MACHINE="UNKNOWN:${unameOut}"
+esac
+echo "Machine name: '${MACHINE}'"
+
 function generate_config_ccs {
     # Inputs:
     #   params_existing_db_prefix
@@ -41,6 +53,19 @@ function generate_config_ccs {
     echo "use_seq_ids=${params_use_seq_ids}" >> config.sh
 }
 
+IPA_TIME() {
+    local local_out_memtime=$1
+    shift
+    # It's very important to use the "$@" right here _without_ first assigning it to a
+    # variable, because variable initialization in Bash will introduce issues with command
+    # lines using quotes (such as awk, grep, etc.).
+    if [[ ${MACHINE} == Linux ]]; then
+        /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o ${local_out_memtime} "$@"
+    else
+        time "$@"
+    fi
+}
+
 function build_db {
     # Inputs:
     #   input_reads_fn
@@ -56,7 +81,7 @@ function build_db {
     # Create a FOFN of input sequences, even if the input is a
     # plain single sequence file.
     local input_reads_ext=${input_reads_fn##*.}
-    if [[ \"${input_reads_ext}\" -eq "fofn" ]]; then
+    if [[ \"${input_reads_ext}\" == "fofn" ]]; then
         cp ${input_reads_fn} input.fofn
     else
         echo "${input_reads_fn}" > input.fofn
@@ -64,11 +89,11 @@ function build_db {
 
     # If the user specified a DB prefix, just symlink it.
     if [[ -z "${existing_db_prefix}" ]]; then
-        # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seqdb.memtime \
+        IPA_TIME log.build_db.seqdb.memtime \
         pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
 
-        # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_db.seeddb.memtime \
-        /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        IPA_TIME log.build_db.seeddb.memtime \
+        pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
     else
         ln -sf ${existing_db_prefix}.seqdb ${params_db_prefix}.seqdb
         for fn in ${existing_db_prefix}.seqdb.*
@@ -121,10 +146,10 @@ function ovl_asym_run {
         opt_use_seq_ids="--write-ids"
     fi
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.pancake.memtime \
+    IPA_TIME log.ovl_asym_run.pancake.memtime \
     pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_run.sort.memtime \
+    IPA_TIME log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
 }
 
@@ -142,7 +167,7 @@ function ovl_asym_merge {
     done < ${input_fofn}
 
     # Merge sort.
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.mergesort.memtime \
+    IPA_TIME log.ovl_asym_merge.mergesort.memtime \
     sort -k1,1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
     echo ovl.merged.m4 > ovl.merged.fofn
 
@@ -159,7 +184,7 @@ function phasing_prepare {
     # Parameters:
     #   params_num_blocks
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_prepare.nighthawk_split.memtime \
+    IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
     nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
 }
 
@@ -180,7 +205,7 @@ function phasing_run {
         opt_use_seq_ids="--alias"
     fi
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_run.nighthawk_phase.memtime \
+    IPA_TIME log.phasing_run.nighthawk_phase.memtime \
     nighthawk phase ${opt_use_seq_ids} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
@@ -196,7 +221,7 @@ function phasing_merge {
     cat ${input_keep_fofn} | xargs cat > all.keep.m4
     cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.phasing_merge.nighthawk_symmetrical.memtime \
+    IPA_TIME log.phasing_merge.nighthawk_symmetrical.memtime \
     nighthawk symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
 }
 
@@ -215,11 +240,11 @@ function ovl_filter {
     echo ${input_m4} > ovl.fofn
 
     # Filter.
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filt.memtime \
+    IPA_TIME log.ovl_asym_merge.m4filt.memtime \
     falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${ovl_filter_opt} --filter-log m4-readfilt.log
 
     # Containment removal.
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.ovl_asym_merge.m4filtcontained.memtime \
+    IPA_TIME log.ovl_asym_merge.m4filtcontained.memtime \
     falconc m4filt-contained --min-idt ${ovl_min_idt} --min-len ${ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
 }
 
@@ -242,14 +267,14 @@ function assemble {
     export PYTHONHASHSEED=2147483647
 
     # Run the assembly.
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.ovlp_to_graph.memtime \
+    IPA_TIME log.assemble.ovlp_to_graph.memtime \
     python3 ${IPA2_WORKSPACE}/scripts/ovlp_to_graph.py --depth-cutoff 20000 --width-cutoff 30000 --length-cutoff 15000000 --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     local opt_use_seq_ids=""
     if [[ ${use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
     fi
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.graph_to_contig.memtime \
+    IPA_TIME log.assemble.graph_to_contig.memtime \
     python3 ${IPA2_WORKSPACE}/scripts/graph_to_contig.py ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
@@ -268,7 +293,7 @@ function assemble {
     fi
 
     # Given a_ctg_all.fasta, write a_ctg.fasta:
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tigs.memtime \
+    # IPA_TIME log.assemble.dedup_a_tigs.memtime \
     # python3 -m falcon_kit.mains.dedup_a_tigs >| a_ctg.fasta
     touch a_ctg.fasta
 
@@ -277,7 +302,7 @@ function assemble {
     fi
 
     # Given a_ctg.fasta and a_ctg_all_tiling_path, write a_ctg_tiling_path:
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.assemble.dedup_a_tph.memtime \
+    # IPA_TIME log.assemble.dedup_a_tph.memtime \
     # python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
     touch a_ctg_tiling_path
 }
@@ -320,11 +345,11 @@ function build_contig_db {
 
     helper_load_config ${params_config_sh_fn}
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seqdb.memtime \
+    IPA_TIME log.build_contig_db.seqdb.memtime \
     pancake seqdb --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
-    # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.build_contig_db.seeddb.memtime \
-    /usr/bin/time pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+    IPA_TIME log.build_contig_db.seeddb.memtime \
+    pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 }
 
 function map_all_prepare {
@@ -364,7 +389,7 @@ function map_all_run {
 
     num_target_blocks=$(awk '/^B/{count++}END{print count}' "${input_target_seqdb}")
     for ((target_block=0;target_block<num_target_blocks;target_block++)); do
-        # /usr/bin/time --format="cmd: %C\\nreal_time: %e s\\nuser_time: %U s\\nsys_time: %S s\\nmax_rss: %M kB\\nexit_status: %x" -o log.map_all_run.pancake.tblock_${target_block}.memtime \
+        IPA_TIME log.map_all_run.pancake.tblock_${target_block}.memtime \
         pancake ovl-hifi --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${ovl_opt_erc} --log-level=INFO ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
     done > mapped.m4
 }
@@ -396,7 +421,10 @@ function polish_prepare {
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
 
+    IPA_TIME log.polish_prepare.sort_read_to_contig.memtime \
     sort -k2,2 ${input_read_to_contig} > sorted.read_to_contig.csv
+
+    IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
     awk 'BEGIN { prev = ""; count = 0} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
 }
 
@@ -424,10 +452,15 @@ function polish_run {
         samtools faidx ${input_a_ctg_fasta} -r ${params_ctg_id_fn} --continue >> ${draft_fn}
     fi
 
-    ###########################################################
-    ### This handles both .fasta(.gz) and .fastq(.gz) inputs. ###
-    ### It ensures that all reads are in the same format.   ###
-    ###########################################################
+    ###################################################################
+    ### This finds the actual extension of the input files          ###
+    ### in the FOFN. It's important because we need to extract      ###
+    ### the sequences, and if the input is FASTQ, Racon can         ###
+    ### leverage the quality values. Otherwise, it also supports    ###
+    ### FASTA.                                                      ###
+    ### This block handles both .fasta(.gz) and .fastq(.gz) inputs. ###
+    ### It ensures that all reads are in the same format.           ###
+    ###################################################################
     for fn in $(cat ${input_fofn})
     do
         # Remove the tailing .gz if it's there, and get the extension.
@@ -446,14 +479,14 @@ function polish_run {
 
     # Extract the reads. It depends if the input is in FASTA or FASTQ, because
     # of Samtools' faidx and fqidx.
-    if [[ ${actual_ext} = "fasta" ]]; then
+    if [[ ${actual_ext} == "fasta" ]]; then
         # Use the "faidx" tool.
         reads_fn="reads.fasta"
         for fn in $(cat ${input_fofn})
         do
             samtools faidx ${fn} -r ${params_reads_to_contig_fn} --continue
         done > ${reads_fn}
-    elif [[ ${actual_ext} = "fastq" ]]; then
+    elif [[ ${actual_ext} == "fastq" ]]; then
         # Use the "fqidx" tool.
         reads_fn="reads.fastq"
         for fn in $(cat ${input_fofn})
@@ -466,8 +499,11 @@ function polish_run {
     fi
 
     # Map and filter.
-    time pbmm2 align --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
-    time falconc bam-filter-clipped -t -F 0x704 --input-fn:- --output-fn aln.sam --output-count-fn filtered_aln_count.txt < aln.unfiltered.bam
+    IPA_TIME log.polish_run.pbmm2.memtime \
+    pbmm2 align --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
+
+    IPA_TIME log.polish_run.falconc_bam_filter.memtime \
+    falconc bam-filter-clipped -t -F 0x704 --input-fn:- --output-fn aln.sam --output-count-fn filtered_aln_count.txt < aln.unfiltered.bam
 
     # The filtered_aln_count.txt is generated by `falconc bam-filter-clipped`.
     local is_good=$(cat filtered_aln_count.txt)
@@ -475,7 +511,8 @@ function polish_run {
         # There are no records in the SAM file. Create an empty output file.
         touch ${output_consensus_fn}
     else
-        time racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} > ${output_consensus_fn}
+        IPA_TIME log.polish_run.racon.memtime \
+        racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} > ${output_consensus_fn}
     fi
 
     # Cleanup

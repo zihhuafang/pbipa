@@ -192,7 +192,7 @@ function phasing_prepare {
 
 function phasing_run {
     # These are explicit inputs:
-    #   input_fasta
+    #   input_seqdb
     #   input_m4
     # Outputs:
     #   output_keep_m4
@@ -208,7 +208,7 @@ function phasing_run {
     fi
 
     IPA_TIME log.phasing_run.nighthawk_phase.memtime \
-    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
 function phasing_merge {

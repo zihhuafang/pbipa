@@ -39,7 +39,7 @@ modules/racon/README.md: modules
 modules/pbmm2/README.md: modules
 
 modules:
-	git submodule update --init --recursive
+	git submodule update --init --recursive --remote
 
 # cram: modules
 # 	scripts/cram tests/cram/*.t

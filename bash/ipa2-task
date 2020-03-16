@@ -51,6 +51,7 @@ function generate_config_ccs {
     echo "ovl_min_len=${params_ovl_min_len}" >> config.sh
     echo "ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
     echo "use_seq_ids=${params_use_seq_ids}" >> config.sh
+    echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
     echo "config_polish=${params_polish}" >> config.sh
 }
 
@@ -207,7 +208,7 @@ function phasing_run {
     fi
 
     IPA_TIME log.phasing_run.nighthawk_phase.memtime \
-    nighthawk phase ${opt_use_seq_ids} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_fasta} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
 function phasing_merge {

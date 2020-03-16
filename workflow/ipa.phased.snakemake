@@ -18,6 +18,7 @@ OVL_MIN_IDT = config['ovl_min_idt']
 OVL_MIN_LEN = config['ovl_min_len']
 OVL_FILTER_OPT = config['ovl_filter_opt']
 USE_SEQ_IDS = config['use_seq_ids']
+PHASING_OPT = config['phasing_opt']
 POLISH = config['polish']
 
 if not os.path.isabs(READS_FN):
@@ -44,6 +45,7 @@ rule generate_config:
         ovl_min_len = OVL_MIN_LEN,
         ovl_filter_opt = OVL_FILTER_OPT,
         use_seq_ids = USE_SEQ_IDS,
+        phasing_opt = PHASING_OPT,
         polish = POLISH,
     shell: """
         mkdir -p generate_config
@@ -62,6 +64,7 @@ rule generate_config:
         params_ovl_min_len="{params.ovl_min_len}" \
         params_ovl_filter_opt="{params.ovl_filter_opt}" \
         params_use_seq_ids="{params.use_seq_ids}" \
+        params_phasing_opt="{params.phasing_opt}" \
         params_polish="{params.polish}" \
             time ipa2-task generate_config_ccs
     """

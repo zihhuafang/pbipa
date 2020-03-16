@@ -203,9 +203,9 @@ rule phasing_run:
     input:
         blockdir = rules.phasing_prepare.output.blockdir,
         config_sh_fn = rules.generate_config.output.config,
+        seqdb = rules.build_db.output.seqdb,
     params:
         num_threads = NPROC,
-        in_fasta = READS_FN,
     shell: """
         echo "block_id_ph={wildcards.block_id_ph}"
         wd=$(dirname {output.out_keep_m4})
@@ -213,7 +213,7 @@ rule phasing_run:
         cd $wd
         rel=../..
 
-        input_fasta="{params.in_fasta}" \
+        input_seqdb="$rel/{input.seqdb}" \
         input_m4="$rel/{input.blockdir}/chunk.{wildcards.block_id_ph}.m4" \
         output_keep_m4=$(basename {output.out_keep_m4}) \
         output_scraps_m4=$(basename {output.out_scraps_m4}) \

@@ -1,0 +1,9 @@
+{
+    "ipa2.reads_fn": "input.fofn",
+    "ipa2.ipa_length_cutoff": 0,
+    "ipa2.ipa_genome_size": 0,
+    "ipa2.ipa_downsampled_coverage": 0,
+    "ipa2.ipa_advanced_options": "",
+    "ipa2.ipa_polish": 1,
+    "ipa2.nproc": 8
+}

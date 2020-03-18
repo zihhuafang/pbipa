@@ -35,7 +35,7 @@ function generate_config_from_workflow {
 
     echo "config_existing_db_prefix=''" > ${output_fn}
     echo "config_genome_size=${params_genome_size}" >> ${output_fn}
-    echo "config_coverage=${params_subsample_coverage}" >> ${output_fn}
+    echo "config_coverage=${params_coverage}" >> ${output_fn}
     echo "config_block_size=4096" >> ${output_fn}
     echo "config_seqdb_opt='--compression 0'" >> ${output_fn}
     echo "config_seeddb_opt='-k 32 -w 80 --space 2'" >> ${output_fn}
@@ -46,7 +46,7 @@ function generate_config_from_workflow {
     echo "config_use_seq_ids=0" >> ${output_fn}
     echo "config_phasing_opt=''" >> ${output_fn}
     echo "config_polish_run=${params_polish_run}" >> ${output_fn}
-    echo "config_phasing_run=${params_phasing_run}" >> ${output_fn}
+    echo "config_phase_run=${params_phase_run}" >> ${output_fn}
 }
 
 function generate_config_ccs {
@@ -77,7 +77,7 @@ function generate_config_ccs {
     echo "config_use_seq_ids=${params_use_seq_ids}" >> config.sh
     echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
     echo "config_polish_run=${params_polish_run}" >> config.sh
-    echo "config_phasing_run=${params_phasing_run}" >> config.sh
+    echo "config_phase_run=${params_phase_run}" >> config.sh
 }
 
 IPA_TIME() {
@@ -215,7 +215,7 @@ function phasing_prepare {
     pwd > ${output_blockdir_fn}
 
     # Only run splitting if the polishing level is > 0.
-    if [[ ${config_phasing_run} -eq 1 ]]; then
+    if [[ ${config_phase_run} -eq 1 ]]; then
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
         nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
 
@@ -271,7 +271,7 @@ function phasing_merge {
 
     helper_load_config ${params_config_sh_fn}
 
-    if [[ ${config_phasing_run} -eq 1 ]]; then
+    if [[ ${config_phase_run} -eq 1 ]]; then
         cat ${input_keep_fofn} | xargs cat > all.keep.m4
         cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
 
@@ -529,8 +529,9 @@ function polish_prepare {
         do
             touch block_id.${num_ctg}.reads
             echo ${ctg} > block_id.${num_ctg}.ctg_id
+            echo ${num_ctg}
             num_ctg=$((num_ctg + 1))
-        done
+        done > ${output_blocks}
     fi
 }
 

@@ -1,0 +1,466 @@
+import os
+print(f'CWD:{os.getcwd()}\n')
+
+CWD = os.getcwd()
+CTG_PREFIX = "ctg."
+READS_FN = config['reads_fn']
+EXISTING_DB_PREFIX = config['existing_db_prefix']
+NPROC = config['nproc']
+GENOME_SIZE = config['genome_size']
+COVERAGE = config['coverage']
+BLOCK_SIZE = config['block_size']
+SEQDB_OPT = config['seqdb_opt']
+SEEDDB_OPT = config['seeddb_opt']
+OVL_OPT = config['ovl_opt']
+OVL_FLANK_GRACE = config['ovl_flank_grace']
+OVL_MIN_IDT = config['ovl_min_idt']
+OVL_MIN_LEN = config['ovl_min_len']
+OVL_FILTER_OPT = config['ovl_filter_opt']
+USE_SEQ_IDS = config['use_seq_ids']
+PHASING_OPT = config['phasing_opt']
+POLISH = config['polish']
+
+READS_DB_PREFIX = "reads"
+CONTIGS_DB_PREFIX = "contigs"
+
+if not os.path.isabs(READS_FN):
+    READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
+
+shell.prefix("set -vxeu -o pipefail; ")
+print(config)
+
+
+rule generate_config:
+    output:
+        config = "generate_config/config.sh"
+    input:
+        reads_fn = READS_FN,
+    params:
+        existing_db_prefix = EXISTING_DB_PREFIX,
+        genome_size = GENOME_SIZE,
+        coverage = COVERAGE,
+        block_size = BLOCK_SIZE,
+        seqdb_opt = SEQDB_OPT,
+        seeddb_opt = SEEDDB_OPT,
+        ovl_opt = OVL_OPT,
+        ovl_flank_grace = OVL_FLANK_GRACE,
+        ovl_min_idt = OVL_MIN_IDT,
+        ovl_min_len = OVL_MIN_LEN,
+        ovl_filter_opt = OVL_FILTER_OPT,
+        use_seq_ids = USE_SEQ_IDS,
+        phasing_opt = PHASING_OPT,
+        polish = POLISH,
+    shell: """
+        mkdir -p generate_config
+        cd generate_config
+        rel=..
+
+        params_existing_db_prefix="{params.existing_db_prefix}" \
+        params_genome_size="{params.genome_size}" \
+        params_coverage="{params.coverage}" \
+        params_block_size="{params.block_size}" \
+        params_seqdb_opt="{params.seqdb_opt}" \
+        params_seeddb_opt="{params.seeddb_opt}" \
+        params_ovl_opt="{params.ovl_opt}" \
+        params_ovl_flank_grace="{params.ovl_flank_grace}" \
+        params_ovl_min_idt="{params.ovl_min_idt}" \
+        params_ovl_min_len="{params.ovl_min_len}" \
+        params_ovl_filter_opt="{params.ovl_filter_opt}" \
+        params_use_seq_ids="{params.use_seq_ids}" \
+        params_phasing_opt="{params.phasing_opt}" \
+        params_polish="{params.polish}" \
+            time ipa2-task generate_config_ccs
+    """
+
+rule build_db:
+    output:
+        seqdb = "build_db/reads.seqdb",
+        seeddb = "build_db/reads.seeddb",
+        seqdb_seqs = "build_db/reads.seqdb.0.seq",
+        seeddb_seeds = "build_db/reads.seeddb.0.seeds",
+        input_fofn = "build_db/input.fofn",
+    input:
+        reads_fn = READS_FN,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        db_prefix = READS_DB_PREFIX,
+    shell: """
+        wd=$(dirname {output.seqdb})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_reads_fn="{input.reads_fn}" \
+        params_db_prefix="{params.db_prefix}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task build_db
+    """
+
+checkpoint ovl_prepare:
+    output:
+        blockdir = directory('ovl_prepare/block_ids'),
+    input:
+        seqdb = rules.build_db.output.seqdb,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        input_db="$rel/{input.seqdb}" \
+        output_blocks=./blocks \
+            time ipa2-task ovl_prepare
+    """
+
+def gathered_m4(wildcards):
+    checkpoint_output = checkpoints.ovl_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids = glob_wildcards(os.path.join(checkpoint_output, "{block_id}.txt")).block_id
+    return expand("ovl_asym_run/{block_id}/ovl.sorted.m4",
+            block_id=block_ids)
+
+rule ovl_asym_run:
+    output:
+        out_m4 = "ovl_asym_run/{block_id}/ovl.m4",
+        out_sorted_m4 = "ovl_asym_run/{block_id}/ovl.sorted.m4",
+    input:
+        seqdb = rules.build_db.output.seqdb,
+        seeddb = rules.build_db.output.seeddb,
+        seqdb_seqs = rules.build_db.output.seqdb_seqs,
+        seeddb_seeds = rules.build_db.output.seeddb_seeds,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+        db_prefix = READS_DB_PREFIX,
+    shell: """
+        echo "block_id={wildcards.block_id}"
+        wd=$(dirname {output.out_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        # mkdir -p 'ovl_asym_run/{wildcards.block_id}'
+        # cd 'ovl_erc_run/{wildcards.block_id}'
+        # rel=../..
+
+        input_seqdb="$rel/{input.seqdb}" \
+        params_block_id={wildcards.block_id} \
+        params_db_prefix="{params.db_prefix}" \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task ovl_asym_run
+    """
+
+rule ovl_asym_merge:
+    output:
+        m4_merged_raw = "ovl_asym_merge/ovl.merged.m4",
+        m4_filtered_nonlocal = "ovl_asym_merge/ovl.nonlocal.m4",
+    input:
+        in_fns = gathered_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+        db_prefix = READS_DB_PREFIX,
+    shell: """
+        wd=$(dirname {output.m4_merged_raw})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.in_fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        params_num_threads="{params.num_threads}" \
+        params_db_prefix={params.db_prefix} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task ovl_asym_merge
+    """
+
+rule ovl_filter:
+    output:
+        m4_final = "ovl_filter/ovl.final.m4",
+        m4_chimerfilt = "ovl_filter/ovl.chimerfilt.m4",
+    input:
+        m4 = rules.ovl_asym_merge.output.m4_merged_raw,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.m4_final})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_m4="$rel/{input.m4}" \
+        output_m4_final=$(basename {output.m4_final}) \
+        output_m4_chimerfilt=$(basename {output.m4_chimerfilt}) \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task ovl_filter
+    """
+
+rule assemble:
+    output:
+        p_ctg_fasta = "assemble/p_ctg.fasta",
+        a_ctg_fasta = "assemble/a_ctg.fasta",
+        p_ctg_tiling_path = "assemble/p_ctg_tiling_path",
+        a_ctg_tiling_path = "assemble/a_ctg_tiling_path",
+        p_ctg_fa_fai = "assemble/p_ctg.fasta.fai",
+        a_ctg_fa_fai = "assemble/a_ctg.fasta.fai",
+#        asm_gfa = "assemble/asm.gfa",
+#        sg_gfa = "assemble/sg.gfa",
+#        contig_gfa2 = "assemble/contig.gfa2",
+        circular_contigs = "assemble/circular_contigs.csv",
+    input:
+        reads_fn = READS_FN,
+        seqdb = rules.build_db.output.seqdb,
+        m4 = rules.ovl_filter.output.m4_final,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+        ctg_prefix = CTG_PREFIX,
+    shell: """
+        wd=$(dirname {output.p_ctg_fasta})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_seqdb="$rel/{input.seqdb}" \
+        input_m4="$rel/{input.m4}" \
+        input_reads="{input.reads_fn}" \
+        params_ctg_prefix={params.ctg_prefix} \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task assemble
+    """
+
+######################
+### Read tracking. ###
+######################
+rule build_contig_db:
+    output:
+        seqdb = "build_contig_db/contigs.seqdb",
+        seeddb = "build_contig_db/contigs.seeddb",
+        seqdb_seqs = "build_contig_db/contigs.seqdb.0.seq",
+        seeddb_seeds = "build_contig_db/contigs.seeddb.0.seeds",
+    input:
+        p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        db_prefix = CONTIGS_DB_PREFIX,
+    shell: """
+        wd=$(dirname {output.seqdb})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
+        params_db_prefix="{params.db_prefix}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task build_contig_db
+    """
+checkpoint map_all_prepare:
+    output:
+        blockdir = directory('map_all_prepare/block_ids')
+    input:
+        contig_seqdb = rules.build_contig_db.output.seqdb,
+        reads_seqdb = rules.build_db.output.seqdb,
+        config_sh_fn = rules.generate_config.output.config,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        input_db="$rel/{input.reads_seqdb}" \
+        output_blocks=./blocks \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task map_all_prepare
+    """
+
+def gathered_map_all_m4(wildcards):
+    checkpoint_output = checkpoints.map_all_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids_map_all = glob_wildcards(os.path.join(checkpoint_output, "{block_id_map_all}.txt")).block_id_map_all
+    return expand("map_all_run/{block_id_map_all}/mapped.m4",
+            block_id_map_all=block_ids_map_all)
+
+rule map_all_run:
+    output:
+        out_m4 = "map_all_run/{block_id_map_all}/mapped.m4",
+    input:
+        query_seqdb = rules.build_db.output.seqdb,
+        query_seeddb = rules.build_db.output.seeddb,
+        query_seqdb_seqs = rules.build_db.output.seqdb_seqs,
+        query_seeddb_seeds = rules.build_db.output.seeddb_seeds,
+        target_seqdb = rules.build_contig_db.output.seqdb,
+        target_seeddb = rules.build_contig_db.output.seeddb,
+        target_seqdb_seqs = rules.build_contig_db.output.seqdb_seqs,
+        target_seeddb_seeds = rules.build_contig_db.output.seeddb_seeds,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        echo "block_id={wildcards.block_id_map_all}"
+        wd=$(dirname {output.out_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        input_target_seqdb="$rel/{input.target_seqdb}" \
+        input_query_seqdb="$rel/{input.query_seqdb}" \
+        params_query_block_id={wildcards.block_id_map_all} \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task map_all_run
+    """
+
+rule map_all_merge:
+    output:
+        merged_mapped = "map_all_merge/mapped.merged.m4",
+        read_to_contig = "map_all_merge/read_to_contig.csv",
+    input:
+        fns = gathered_map_all_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.merged_mapped})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        params_num_threads="{params.num_threads}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task map_all_merge
+    """
+
+#################
+### Polishing ###
+#################
+checkpoint polish_prepare:
+    output:
+        blockdir = directory('polish_prepare/block_ids'),
+    input:
+        read_to_contig = rules.map_all_merge.output.read_to_contig,
+        config_sh_fn = rules.generate_config.output.config,
+        # The p_ctg and a_ctg FASTA files are needed to enable the
+        # config 'polish' option to skip polishing. If polishing is skipped
+        # then the output "polished" contigs will be just the draft sequences.
+        p_ctg_fasta_fai = rules.assemble.output.p_ctg_fa_fai,
+        a_ctg_fasta_fai = rules.assemble.output.a_ctg_fa_fai,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        input_read_to_contig="$rel/{input.read_to_contig}" \
+        input_p_ctg_fasta_fai="$rel/{input.p_ctg_fasta_fai}" \
+        input_a_ctg_fasta_fai="$rel/{input.a_ctg_fasta_fai}" \
+        output_blocks=./blocks \
+        output_blockdir_fn="blockdir_fn.txt" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task polish_prepare
+    """
+def gathered_polish(wildcards):
+    checkpoint_output = checkpoints.polish_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids_polish = glob_wildcards(os.path.join(checkpoint_output, "block_id.{block_id_polish}.reads")).block_id_polish
+    return expand("polish_run/{block_id_polish}/consensus.fasta",
+            block_id_polish=block_ids_polish)
+
+rule polish_run:
+    output:
+        consensus = "polish_run/{block_id_polish}/consensus.fasta",
+    input:
+        input_fofn = rules.build_db.output.input_fofn,
+        p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+        reads_to_contig_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.reads"),
+        ctg_id_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.ctg_id"),
+    shell: """
+        echo "block_id={wildcards.block_id_polish}"
+        wd=$(dirname {output.consensus})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        input_fofn="$rel/{input.input_fofn}" \
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
+        output_consensus_fn=$(basename {output.consensus}) \
+        params_reads_to_contig_fn="$rel/{params.reads_to_contig_fn}" \
+        params_ctg_id_fn="$rel/{params.ctg_id_fn}" \
+        params_block_id={wildcards.block_id_polish} \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task polish_run
+    """
+
+rule polish_merge:
+    output:
+        consensus_merged = "polish_merge/assembly.merged.fasta",
+    input:
+        fns = gathered_polish,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.consensus_merged})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        output_fasta=$(basename {output.consensus_merged}) \
+        params_num_threads="{params.num_threads}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task polish_merge
+    """
+
+rule final:
+    output:
+        assembly_final_fasta = "final/assembly.final.fasta",
+        p_ctg_fasta = "final/draft.p_ctg.fasta",
+        a_ctg_fasta = "final/draft.a_ctg.fasta",
+    input:
+        assembly_merged_fasta = rules.polish_merge.output.consensus_merged,
+        p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
+    shell: """
+        wd=$(dirname {output.assembly_final_fasta})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_assembly_merged_fasta="$rel/{input.assembly_merged_fasta}" \
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
+        output_assembly_final_fasta=$(basename {output.assembly_final_fasta}) \
+        output_p_ctg_fasta=$(basename {output.p_ctg_fasta}) \
+        output_a_ctg_fasta=$(basename {output.a_ctg_fasta}) \
+            time ipa2-task final_collect
+    """
+
+rule finish:
+    input:
+        rules.final.output.assembly_final_fasta,
+        rules.final.output.p_ctg_fasta,
+        rules.final.output.a_ctg_fasta,

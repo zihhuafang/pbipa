@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 """
 TODO: (from convo w/ Ivan)
 the issue with this script (but would still like to re-read it to refresh my memory). The script loads all edge sequences and tries to do two things at once: create p_ctg and a_ctg sequences, and align the bubbles using those sequences

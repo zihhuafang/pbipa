@@ -33,21 +33,17 @@ function generate_config_from_workflow {
     # Outputs:
     #   output_fn
 
-    echo "config_existing_db_prefix=''" > ${output_fn}
-    echo "config_genome_size=${params_genome_size}" >> ${output_fn}
-    echo "config_coverage=${params_coverage}" >> ${output_fn}
-    echo "config_block_size=4096" >> ${output_fn}
-    echo "config_seqdb_opt='--compression 0'" >> ${output_fn}
-    echo "config_seeddb_opt='-k 32 -w 80 --space 2'" >> ${output_fn}
-    echo "config_ovl_opt=''" >> ${output_fn}
-    echo "config_ovl_min_idt=98" >> ${output_fn}
-    echo "config_ovl_min_len=1000" >> ${output_fn}
-    echo "config_ovl_filter_opt='--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4'" >> ${output_fn}
-    echo "config_use_seq_ids=0" >> ${output_fn}
-    echo "config_phasing_opt=''" >> ${output_fn}
-    echo "config_phasing_piles=10000" >> ${output_fn}
-    echo "config_polish_run=${params_polish_run}" >> ${output_fn}
-    echo "config_phase_run=${params_phase_run}" >> ${output_fn}
+    echo "config_genome_size=${params_genome_size}" > input_opt.cfg
+    echo "config_coverage=${params_coverage}" >> input_opt.cfg
+    echo "config_polish_run=${params_polish_run}" >> input_opt.cfg
+    echo "config_phase_run=${params_phase_run}" >> input_opt.cfg
+    echo "${params_advanced_opt}" >> input_opt.cfg
+
+    # Parse and generate the config as Bash.
+    cat input_opt.cfg | python3 ${IPA2_WORKSPACE}/scripts/ipa2_construct_config.py --out-fmt bash --out-fn ${output_fn}
+
+    # Write the config as JSON as well, for workflows which support it.
+    cat input_opt.cfg | python3 ${IPA2_WORKSPACE}/scripts/ipa2_construct_config.py --out-fmt json --out-fn ${output_fn}.json
 }
 
 function generate_config_ccs {

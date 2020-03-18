@@ -216,7 +216,7 @@ function phasing_prepare {
         nighthawk split --split-type ovlpiles --limit ${config_phasing_piles} chunk ${input_m4}
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
-        for ((block1=1;block1<=num_blocks;block1++)); do
+        for ((block1=0;block1<num_blocks;block1++)); do
             echo ${block1}
         done > ${output_blocks}
     else

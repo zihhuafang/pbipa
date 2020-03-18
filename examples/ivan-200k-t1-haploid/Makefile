@@ -1,14 +1,14 @@
 SNAKE_DIR=${IPA2_WORKSPACE}/workflow/
-WF_SNAKEMAKE=${SNAKE_DIR}/ipa.haploid.snakemake
+WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakemake
 CROMWELL?=/pbi/dept/consensus/isovic/tools/cromwell-38.jar
-WF_CROMWELL=${IPA2_WORKSPACE}/workflow/ipa.haploid.wdl
+WF_CROMWELL=${IPA2_WORKSPACE}/workflow/ipa.wdl
 LAST_CROMWELL_RUNDIR=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)
 
 snake:
-	CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.snakemake.json --config MAKEDIR=.. -- finish
+	CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.json --config MAKEDIR=.. -- finish
 
 wdl:
-	/usr/bin/time java -jar ${CROMWELL} run --inputs config.wdl.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee
+	/usr/bin/time java -jar ${CROMWELL} run --inputs config.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee
 	${MAKE} link
 	# -/usr/bin/time bash run.sh 2>&1 | tee log.wdl.tee
 

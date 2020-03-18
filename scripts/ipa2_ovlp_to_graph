@@ -1,3 +1,5 @@
+#! /usr/bin/env python3
+
 import networkx as nx
 import argparse
 import logging
@@ -976,7 +978,7 @@ def construct_compound_paths_3(ug, compound_paths_2, edge_to_cpath):
 def construct_compound_paths(ug, u_edge_data, depth_cutoff, width_cutoff, length_cutoff):
 
     branch_nodes = identify_branch_nodes(ug)
-    
+
     time_compound_paths_0 = [time.time()]
     compound_paths_0 = construct_compound_paths_0(ug, u_edge_data, branch_nodes, depth_cutoff, width_cutoff, length_cutoff)
     time_compound_paths_0 += [time.time()]

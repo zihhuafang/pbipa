@@ -13,6 +13,9 @@ all: modules/pancake/build/src/pancake modules/falconc/src/falconc modules/night
 	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/racon/build-meson/racon
 	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/pbmm2/build/src/pbmm2
 	cd ${IPA2_PREFIX}/bin && ln -sf ../../bash/ipa2-task
+	cd ${IPA2_PREFIX}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
+	cd ${IPA2_PREFIX}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
+	cd ${IPA2_PREFIX}/bin && ln -sf ../../scripts/ipa2_construct_config
 
 modules/pancake/build/src/pancake: modules/pancake/README.md
 	cd modules/pancake && make all

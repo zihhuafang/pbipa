@@ -46,6 +46,7 @@ function generate_config_from_workflow {
     echo "config_use_seq_ids=0" >> ${output_fn}
     echo "config_phasing_opt=''" >> ${output_fn}
     echo "config_polish=${params_polish}" >> ${output_fn}
+    echo "config_phasing_run=${params_phasing_run}" >> ${output_fn}
 }
 
 function generate_config_ccs {
@@ -76,6 +77,7 @@ function generate_config_ccs {
     echo "config_use_seq_ids=${params_use_seq_ids}" >> config.sh
     echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
     echo "config_polish=${params_polish}" >> config.sh
+    echo "config_phasing_run=${params_phasing_run}" >> config.sh
 }
 
 IPA_TIME() {
@@ -207,8 +209,20 @@ function phasing_prepare {
     # Parameters:
     #   params_num_blocks
 
-    IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-    nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
+    helper_load_config ${params_config_sh_fn}
+
+    # Only run splitting if the polishing level is > 0.
+    if [[ ${config_phasing_run} -eq 1 ]]; then
+        IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
+        nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
+    else
+        # Create a dummy output file so that "phasing_run" will run (as a no-op).
+        touch chunk.0.txt
+    fi
+
+    if [[ ! -s ${output_blocks} ]]; then
+        touch ${output_blocks}
+    fi
 }
 
 function phasing_run {
@@ -236,16 +250,23 @@ function phasing_merge {
     # These are explicit inputs:
     #   input_keep_fofn
     #   input_scraps_fofn
+    #   input_original_m4
     # Outputs:
     #   output_m4
     # Parameters:
     #   params_num_threads
 
-    cat ${input_keep_fofn} | xargs cat > all.keep.m4
-    cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
+    helper_load_config ${params_config_sh_fn}
 
-    IPA_TIME log.phasing_merge.nighthawk_symmetrical.memtime \
-    nighthawk symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
+    if [[ ${config_phasing_run} -eq 1 ]]; then
+        cat ${input_keep_fofn} | xargs cat > all.keep.m4
+        cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
+
+        IPA_TIME log.phasing_merge.nighthawk_symmetrical.memtime \
+        nighthawk symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
+    else
+        cp ${input_original_m4} ${output_m4}
+    fi
 }
 
 function ovl_filter {

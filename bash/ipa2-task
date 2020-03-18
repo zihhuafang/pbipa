@@ -45,7 +45,7 @@ function generate_config_from_workflow {
     echo "config_ovl_filter_opt='--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4'" >> ${output_fn}
     echo "config_use_seq_ids=0" >> ${output_fn}
     echo "config_phasing_opt=''" >> ${output_fn}
-    echo "config_polish=${params_polish}" >> ${output_fn}
+    echo "config_polish_run=${params_polish_run}" >> ${output_fn}
     echo "config_phasing_run=${params_phasing_run}" >> ${output_fn}
 }
 
@@ -76,7 +76,7 @@ function generate_config_ccs {
     echo "config_ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
     echo "config_use_seq_ids=${params_use_seq_ids}" >> config.sh
     echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
-    echo "config_polish=${params_polish}" >> config.sh
+    echo "config_polish_run=${params_polish_run}" >> config.sh
     echo "config_phasing_run=${params_phasing_run}" >> config.sh
 }
 
@@ -204,6 +204,7 @@ function phasing_prepare {
     # Input:
     #   input_m4
     # Output:
+    #   output_blockdir_fn
     #   *.m4 in cwd
     #   ${output_blocks} (same info in 1 file)
     # Parameters:
@@ -211,10 +212,17 @@ function phasing_prepare {
 
     helper_load_config ${params_config_sh_fn}
 
+    pwd > ${output_blockdir_fn}
+
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_phasing_run} -eq 1 ]]; then
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
         nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
+
+        local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
+        for ((block1=1;block1<=num_blocks;block1++)); do
+            echo ${block1}
+        done > ${output_blocks}
     else
         # Create a dummy output file so that "phasing_run" will run (as a no-op).
         touch chunk.0.txt
@@ -232,10 +240,15 @@ function phasing_run {
     # Outputs:
     #   output_keep_m4
     #   output_scraps_m4
+    #   output_outdir_fn
     # Parameters:
     #   params_num_threads
 
     helper_load_config ${params_config_sh_fn}
+
+    # Workaround to allow multiple files to be gathered in the next task.
+    # We will use this to get the path of the source dir.
+    pwd > ${output_outdir_fn}
 
     local opt_use_seq_ids=""
     if [[ ${config_use_seq_ids} -eq 1 ]]; then
@@ -392,7 +405,7 @@ function build_contig_db {
     helper_load_config ${params_config_sh_fn}
 
     # Only run this stage if the polishing level is > 0.
-    if [[ ${config_polish} -ge 1 ]]; then
+    if [[ ${config_polish_run} -ge 1 ]]; then
         IPA_TIME log.build_contig_db.seqdb.memtime \
         pancake seqdb --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
@@ -418,7 +431,7 @@ function map_all_prepare {
     helper_load_config ${params_config_sh_fn}
 
     # Only run splitting if the polishing level is > 0.
-    if [[ ${config_polish} -ge 1 ]]; then
+    if [[ ${config_polish_run} -ge 1 ]]; then
         num_blocks=$(awk '/^B/{count++}END{print count}' "${input_db}")
         for ((block1=0;block1<num_blocks;block1++)); do
             echo $block1 > $block1.txt
@@ -443,7 +456,7 @@ function map_all_run {
     #   params_num_threads
     #   params_config_sh_fn
 
-    ### Note: no need to specially check for ${config_polish} here, because
+    ### Note: no need to specially check for ${config_polish_run} here, because
     ### mapping will come up empty since there are zero target blocks.
 
     helper_load_config ${params_config_sh_fn}
@@ -468,7 +481,7 @@ function map_all_merge {
     #   params_config_sh_fn
     helper_load_config ${params_config_sh_fn}
 
-    ### Note: no need to specially check for ${config_polish} here, because
+    ### Note: no need to specially check for ${config_polish_run} here, because
     ### there will be only one dummy mapped.m4 in block 0, and that's empty.
     ### Also, because of this, the read_to_contig.csv will be empty.
 
@@ -497,10 +510,10 @@ function polish_prepare {
     #   ${output_blocks} (same info in 1 file)
     helper_load_config ${params_config_sh_fn}
 
-    pwd > blockdir_fn.txt
+    pwd > ${output_blockdir_fn}
 
     # Only run splitting if the polishing level is > 0.
-    if [[ ${config_polish} -ge 1 ]]; then
+    if [[ ${config_polish_run} -ge 1 ]]; then
         # Sort by contig ID.
         IPA_TIME log.polish_prepare.sort_read_to_contig.memtime \
         sort -k2,2 ${input_read_to_contig} > sorted.read_to_contig.csv
@@ -538,7 +551,7 @@ function polish_run {
     helper_load_config ${params_config_sh_fn}
 
     # Only run if the polishing level is > 0.
-    if [[ ${config_polish} -ge 1 ]]; then
+    if [[ ${config_polish_run} -ge 1 ]]; then
         # Extract the contig sequence.
         # The a_ctg.fasta file can be empty, in which case the .fai file does not exist
         draft_fn="draft.fasta"

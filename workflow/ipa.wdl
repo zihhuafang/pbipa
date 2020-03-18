@@ -10,7 +10,8 @@ workflow ipa2 {
         Int ipa_genome_size = 0
         Int ipa_downsampled_coverage = 0
         String ipa_advanced_options = ""
-        Int ipa_polish = 0
+        Int ipa_polish_run = 0
+        Int ipa_phasing_run = 0
         Int nproc = 1
 
         Boolean consolidate_aligned_bam = false
@@ -29,7 +30,8 @@ workflow ipa2 {
             length_cutoff = ipa_length_cutoff,
             downsampled_coverage = ipa_downsampled_coverage,
             genome_size = ipa_genome_size,
-            polish = ipa_polish,
+            polish_run = ipa_polish_run,
+            phasing_run = ipa_phasing_run,
     }
 
     call build_db {
@@ -68,9 +70,39 @@ workflow ipa2 {
             db_prefix = reads_db_prefix,
     }
 
+    call phasing_prepare {
+        input:
+            seqdb = build_db.seqdb,
+            m4 = ovl_asym_merge.m4_filtered_nonlocal,
+            config_sh_fn = generate_config.config_sh_fn,
+            num_blocks = nproc,
+    }
+
+    Array[String] blocks_phasing = read_lines(phasing_prepare.blocks_fofn)
+
+    scatter (block_id in blocks_phasing) {
+        call phasing_run {
+            input:
+                seqdb = build_db.seqdb,
+                seqdb_seqs = build_db.seqdb_seqs,
+                blockdir_fn = phasing_prepare.blockdir_fn,
+                config_sh_fn = generate_config.config_sh_fn,
+                num_threads = nproc,
+                block_id = block_id,
+        }
+    }
+
+    call phasing_merge {
+        input:
+            in_fns = phasing_run.outdir_fn,
+            original_m4 = ovl_asym_merge.m4_filtered_nonlocal,
+            config_sh_fn = generate_config.config_sh_fn,
+            num_threads = nproc,
+    }
+
     call ovl_filter{
         input:
-            m4 = ovl_asym_merge.m4_merged_raw,
+            m4 = phasing_merge.gathered_m4,
             config_sh_fn = generate_config.config_sh_fn,
             num_threads = nproc,
     }
@@ -169,13 +201,15 @@ task generate_config {
         Int length_cutoff
         Int downsampled_coverage
         Int genome_size
-        Int polish
+        Int polish_run
+        Int phasing_run
     }
     command {
         params_advanced_opt="${advanced_opt_str}" \
         params_subsample_coverage="${downsampled_coverage}" \
         params_genome_size="${genome_size}" \
-        params_polish="${polish}" \
+        params_polish_run="${polish_run}" \
+        params_phasing_run="${phasing_run}" \
         output_fn="generated.config.sh" \
             ipa2-task generate_config_from_workflow
     }
@@ -270,6 +304,91 @@ task ovl_asym_merge {
     output {
         File m4_merged_raw = "ovl.merged.m4"
         File m4_filtered_nonlocal = "ovl.nonlocal.m4"
+    }
+}
+
+task phasing_prepare {
+    input {
+        String seqdb
+        File m4
+        File config_sh_fn
+        Int num_blocks
+    }
+    command {
+        output_blocks="blocks" \
+        output_blockdir_fn="blockdir_fn.txt" \
+        params_num_blocks=${num_blocks} \
+        input_m4="${m4}" \
+        params_config_sh_fn="${config_sh_fn}" \
+            time ipa2-task phasing_prepare
+    }
+    output {
+        File blocks_fofn = "blocks"
+        File blockdir_fn = "blockdir_fn.txt"
+    }
+}
+
+task phasing_run {
+    input {
+        File seqdb
+        File seqdb_seqs
+        File blockdir_fn
+        File config_sh_fn
+        Int num_threads
+        String block_id
+    }
+    command <<<
+        blockdir=$(cat ~{blockdir_fn})
+        input_m4_fn="${blockdir}/chunk.~{block_id}.m4"
+
+        input_seqdb="~{seqdb}" \
+        input_m4="${input_m4_fn}" \
+        output_keep_m4="ovl.phased.m4" \
+        output_scraps_m4="ovl.phased.m4.scraps" \
+        output_outdir_fn="outdir_fn.txt" \
+        params_num_threads=~{num_threads} \
+        params_config_sh_fn="~{config_sh_fn}" \
+            time ipa2-task phasing_run
+    >>>
+    runtime {
+        cpu: num_threads
+    }
+    output {
+        File out_keep_m4 = "ovl.phased.m4"
+        File out_scraps_m4 = "ovl.phased.m4.scraps"
+        # Workaround to allow multiple files to be gathered in the next task.
+        File outdir_fn = "outdir_fn.txt"
+    }
+}
+
+task phasing_merge {
+    input {
+        Array[File] in_fns
+        File original_m4
+        File config_sh_fn
+        Int num_threads
+    }
+    command <<<
+        set -vex
+
+        # Slight difference from the Snakemake workflow in order to get multiple input files.
+        # Instead of in_fns pointing to a particular of either of the "ovl.phased.m4" or "ovl.phased.m4.scraps",
+        # we are using a sentinel file "outdir_fn.txt" which holds the pwd of the phasing_run folder which
+        # generated these files. This is required because Cromwell changes the folder for the input files,
+        # and we need to get to the original folder in order to be able to collect the FOFNs.
+        echo ~{sep=' ' in_fns} | xargs -n 1 cat | awk '{ print $1"/ovl.phased.m4" }' > merged.keep.fofn
+        echo ~{sep=' ' in_fns} | xargs -n 1 cat | awk '{ print $1"/ovl.phased.m4.scraps" }' > merged.scraps.fofn
+
+        input_keep_fofn="./merged.keep.fofn" \
+        input_scraps_fofn="./merged.scraps.fofn" \
+        input_original_m4="~{original_m4}" \
+        output_m4="ovl.phased.m4" \
+        params_num_threads=~{num_threads} \
+        params_config_sh_fn="~{config_sh_fn}" \
+            time ipa2-task phasing_merge
+    >>>
+    output {
+        File gathered_m4 = "ovl.phased.m4"
     }
 }
 

@@ -18,7 +18,7 @@ OVL_MIN_LEN = config['ovl_min_len']
 OVL_FILTER_OPT = config['ovl_filter_opt']
 USE_SEQ_IDS = config['use_seq_ids']
 PHASING_OPT = config['phasing_opt']
-POLISH = config['polish']
+POLISH = config['polish_run']
 PHASING_RUN = config['phasing_run']
 
 READS_DB_PREFIX = "reads"
@@ -70,7 +70,7 @@ rule generate_config:
         params_ovl_filter_opt="{params.ovl_filter_opt}" \
         params_use_seq_ids="{params.use_seq_ids}" \
         params_phasing_opt="{params.phasing_opt}" \
-        params_polish="{params.polish}" \
+        params_polish_run="{params.polish}" \
         params_phasing_run="{params.phasing_run}" \
             time ipa2-task generate_config_ccs
     """
@@ -183,7 +183,7 @@ rule ovl_asym_merge:
 
 checkpoint phasing_prepare:
     output:
-        blockdir = directory('phasing_prepare/piles')
+        blockdir = directory('phasing_prepare/piles'),
     input:
         seqdb = rules.build_db.output.seqdb,
         m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
@@ -196,7 +196,8 @@ checkpoint phasing_prepare:
         cd {output.blockdir}
         rel=../..
 
-        output_blocks=./piles \
+        output_blocks="blocks" \
+        output_blockdir_fn="blockdir_fn.txt" \
         params_num_blocks={params.num_blocks} \
         input_m4="$rel/{input.m4}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
@@ -206,17 +207,19 @@ checkpoint phasing_prepare:
 def gathered_prepared_phasing_m4(wildcards):
     checkpoint_output_ph = checkpoints.phasing_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
     block_ids_phasing = glob_wildcards(os.path.join(checkpoint_output_ph, "chunk.{block_id_ph}.m4")).block_id_ph
-    return expand("phasing_run/{block_id_ph}/ovl.phased.m4",
+    return expand("phasing_run/{block_id_ph}/outdir_fn.txt",
             block_id_ph=block_ids_phasing)
 
 rule phasing_run:
     output:
         out_keep_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4",
         out_scraps_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4.scraps",
+        out_outdir_fn = "phasing_run/{block_id_ph}/outdir_fn.txt",
     input:
         blockdir = rules.phasing_prepare.output.blockdir,
         config_sh_fn = rules.generate_config.output.config,
         seqdb = rules.build_db.output.seqdb,
+        seqdb_seqs = rules.build_db.output.seqdb_seqs,
     params:
         num_threads = NPROC,
     shell: """
@@ -230,6 +233,7 @@ rule phasing_run:
         input_m4="$rel/{input.blockdir}/chunk.{wildcards.block_id_ph}.m4" \
         output_keep_m4=$(basename {output.out_keep_m4}) \
         output_scraps_m4=$(basename {output.out_scraps_m4}) \
+        output_outdir_fn="outdir_fn.txt" \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task phasing_run
@@ -253,12 +257,16 @@ rule phasing_merge:
 
         # Collect all overlap paths to keep.
         for fn in {input.fns}; do
-            echo $rel/$fn
+            # Get the folder name.
+            dn=$(cat $rel/$fn)
+            echo $dn/ovl.phased.m4
         done >| ./merged.keep.fofn
 
         # Collect all scraps paths.
         for fn in {input.fns}; do
-            echo $rel/$fn.scraps
+            # Get the folder name.
+            dn=$(cat $rel/$fn)
+            echo $dn/ovl.phased.m4.scraps
         done >| ./merged.scraps.fofn
 
         input_keep_fofn="./merged.keep.fofn" \

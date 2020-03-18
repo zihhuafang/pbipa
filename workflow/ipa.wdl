@@ -6,12 +6,11 @@ version 1.0
 workflow ipa2 {
     input {
         File reads_fn
-        Int ipa_length_cutoff = -1
-        Int ipa_genome_size = 0
-        Int ipa_downsampled_coverage = 0
-        String ipa_advanced_options = ""
-        Int ipa_polish_run = 0
-        Int ipa_phasing_run = 0
+        Int genome_size = 0
+        Int coverage = 0
+        String advanced_options = ""
+        Int polish_run = 0
+        Int phase_run = 0
         Int nproc = 1
 
         Boolean consolidate_aligned_bam = false
@@ -26,12 +25,11 @@ workflow ipa2 {
 
     call generate_config {
         input:
-            advanced_opt_str = ipa_advanced_options,
-            length_cutoff = ipa_length_cutoff,
-            downsampled_coverage = ipa_downsampled_coverage,
-            genome_size = ipa_genome_size,
-            polish_run = ipa_polish_run,
-            phasing_run = ipa_phasing_run,
+            advanced_opt_str = advanced_options,
+            coverage = coverage,
+            genome_size = genome_size,
+            polish_run = polish_run,
+            phase_run = phase_run,
     }
 
     call build_db {
@@ -198,18 +196,17 @@ workflow ipa2 {
 task generate_config {
     input {
         String advanced_opt_str
-        Int length_cutoff
-        Int downsampled_coverage
+        Int coverage
         Int genome_size
         Int polish_run
-        Int phasing_run
+        Int phase_run
     }
     command {
         params_advanced_opt="${advanced_opt_str}" \
-        params_subsample_coverage="${downsampled_coverage}" \
+        params_coverage="${coverage}" \
         params_genome_size="${genome_size}" \
         params_polish_run="${polish_run}" \
-        params_phasing_run="${phasing_run}" \
+        params_phase_run="${phase_run}" \
         output_fn="generated.config.sh" \
             ipa2-task generate_config_from_workflow
     }

@@ -3,23 +3,14 @@ print(f'CWD:{os.getcwd()}\n')
 
 CWD = os.getcwd()
 CTG_PREFIX = "ctg."
-READS_FN = config['reads_fn']
-EXISTING_DB_PREFIX = config['existing_db_prefix']
-NPROC = config['nproc']
-GENOME_SIZE = config['genome_size']
-COVERAGE = config['coverage']
-BLOCK_SIZE = config['block_size']
-SEQDB_OPT = config['seqdb_opt']
-SEEDDB_OPT = config['seeddb_opt']
-OVL_OPT = config['ovl_opt']
-OVL_FLANK_GRACE = config['ovl_flank_grace']
-OVL_MIN_IDT = config['ovl_min_idt']
-OVL_MIN_LEN = config['ovl_min_len']
-OVL_FILTER_OPT = config['ovl_filter_opt']
-USE_SEQ_IDS = config['use_seq_ids']
-PHASING_OPT = config['phasing_opt']
-POLISH = config['polish_run']
-PHASING_RUN = config['phasing_run']
+
+READS_FN = config['ipa2.reads_fn']
+GENOME_SIZE = config['ipa2.genome_size']
+COVERAGE = config['ipa2.coverage']
+ADVANCED_OPTIONS = config["ipa2.advanced_options"]
+POLISH_RUN = config['ipa2.polish_run']
+PHASING_RUN = config['ipa2.phase_run']
+NPROC = config['ipa2.nproc']
 
 READS_DB_PREFIX = "reads"
 CONTIGS_DB_PREFIX = "contigs"
@@ -30,49 +21,29 @@ if not os.path.isabs(READS_FN):
 shell.prefix("set -vxeu -o pipefail; ")
 print(config)
 
-
 rule generate_config:
     output:
-        config = "generate_config/config.sh"
+        config = "generate_config/generated.config.sh"
     input:
         reads_fn = READS_FN,
     params:
-        existing_db_prefix = EXISTING_DB_PREFIX,
         genome_size = GENOME_SIZE,
         coverage = COVERAGE,
-        block_size = BLOCK_SIZE,
-        seqdb_opt = SEQDB_OPT,
-        seeddb_opt = SEEDDB_OPT,
-        ovl_opt = OVL_OPT,
-        ovl_flank_grace = OVL_FLANK_GRACE,
-        ovl_min_idt = OVL_MIN_IDT,
-        ovl_min_len = OVL_MIN_LEN,
-        ovl_filter_opt = OVL_FILTER_OPT,
-        use_seq_ids = USE_SEQ_IDS,
-        phasing_opt = PHASING_OPT,
-        polish = POLISH,
-        phasing_run = PHASING_RUN,
+        advanced_opt_str = ADVANCED_OPTIONS,
+        polish_run = POLISH_RUN,
+        phase_run = PHASING_RUN,
     shell: """
         mkdir -p generate_config
         cd generate_config
         rel=..
 
-        params_existing_db_prefix="{params.existing_db_prefix}" \
-        params_genome_size="{params.genome_size}" \
+        params_advanced_opt="{params.advanced_opt_str}" \
         params_coverage="{params.coverage}" \
-        params_block_size="{params.block_size}" \
-        params_seqdb_opt="{params.seqdb_opt}" \
-        params_seeddb_opt="{params.seeddb_opt}" \
-        params_ovl_opt="{params.ovl_opt}" \
-        params_ovl_flank_grace="{params.ovl_flank_grace}" \
-        params_ovl_min_idt="{params.ovl_min_idt}" \
-        params_ovl_min_len="{params.ovl_min_len}" \
-        params_ovl_filter_opt="{params.ovl_filter_opt}" \
-        params_use_seq_ids="{params.use_seq_ids}" \
-        params_phasing_opt="{params.phasing_opt}" \
-        params_polish_run="{params.polish}" \
-        params_phasing_run="{params.phasing_run}" \
-            time ipa2-task generate_config_ccs
+        params_genome_size="{params.genome_size}" \
+        params_polish_run="{params.polish_run}" \
+        params_phase_run="{params.phase_run}" \
+        output_fn="generated.config.sh" \
+            time ipa2-task generate_config_from_workflow
     """
 
 rule build_db:

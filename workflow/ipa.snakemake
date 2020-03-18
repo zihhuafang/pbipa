@@ -159,8 +159,6 @@ checkpoint phasing_prepare:
         seqdb = rules.build_db.output.seqdb,
         m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         config_sh_fn = rules.generate_config.output.config,
-    params:
-        num_blocks = NPROC,
     shell: """
         rm -f {output.blockdir}
         mkdir -p {output.blockdir}
@@ -169,7 +167,6 @@ checkpoint phasing_prepare:
 
         output_blocks="blocks" \
         output_blockdir_fn="blockdir_fn.txt" \
-        params_num_blocks={params.num_blocks} \
         input_m4="$rel/{input.m4}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
             time ipa2-task phasing_prepare

@@ -73,7 +73,6 @@ workflow ipa2 {
             seqdb = build_db.seqdb,
             m4 = ovl_asym_merge.m4_filtered_nonlocal,
             config_sh_fn = generate_config.config_sh_fn,
-            num_blocks = nproc,
     }
 
     Array[String] blocks_phasing = read_lines(phasing_prepare.blocks_fofn)
@@ -309,12 +308,10 @@ task phasing_prepare {
         String seqdb
         File m4
         File config_sh_fn
-        Int num_blocks
     }
     command {
         output_blocks="blocks" \
         output_blockdir_fn="blockdir_fn.txt" \
-        params_num_blocks=${num_blocks} \
         input_m4="${m4}" \
         params_config_sh_fn="${config_sh_fn}" \
             time ipa2-task phasing_prepare

@@ -45,6 +45,7 @@ function generate_config_from_workflow {
     echo "config_ovl_filter_opt='--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4'" >> ${output_fn}
     echo "config_use_seq_ids=0" >> ${output_fn}
     echo "config_phasing_opt=''" >> ${output_fn}
+    echo "config_phasing_piles=10000" >> ${output_fn}
     echo "config_polish_run=${params_polish_run}" >> ${output_fn}
     echo "config_phase_run=${params_phase_run}" >> ${output_fn}
 }
@@ -76,6 +77,7 @@ function generate_config_ccs {
     echo "config_ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
     echo "config_use_seq_ids=${params_use_seq_ids}" >> config.sh
     echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
+    echo "config_phasing_piles=${params_phasing_piles}" >> config.sh
     echo "config_polish_run=${params_polish_run}" >> config.sh
     echo "config_phase_run=${params_phase_run}" >> config.sh
 }
@@ -207,8 +209,6 @@ function phasing_prepare {
     #   output_blockdir_fn
     #   *.m4 in cwd
     #   ${output_blocks} (same info in 1 file)
-    # Parameters:
-    #   params_num_blocks
 
     helper_load_config ${params_config_sh_fn}
 
@@ -217,7 +217,7 @@ function phasing_prepare {
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_phase_run} -eq 1 ]]; then
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-        nighthawk split --nFiles ${params_num_blocks} chunk ${input_m4}
+        nighthawk split --split-type ovlpiles --limit ${config_phasing_piles} chunk ${input_m4}
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
         for ((block1=1;block1<=num_blocks;block1++)); do

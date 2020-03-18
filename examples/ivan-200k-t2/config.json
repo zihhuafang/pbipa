@@ -1,17 +1,9 @@
 {
-    'reads_fn': '/pbi/dept/consensus/isovic/data-depo/test-data/synth-hifi-asm/ivan-200k-t2/reads.all.fasta',
-    'existing_db_prefix': '',
-    'use_seq_ids': 0,
-    'nproc': 8,
-    'genome_size': 0,
-    'coverage': 0,
-    'block_size': 2048,
-    'seqdb_opt': '--compression 0',
-    'seeddb_opt': '-k 32 -w 80 --space 2',
-    'ovl_opt': '',
-    'ovl_flank_grace': 0,
-    'ovl_min_idt': 98,
-    'ovl_min_len': 1000,
-    'ovl_filter_opt': '--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4',
-    'polish': 1
+    "ipa2.reads_fn": "input.fofn",
+    "ipa2.genome_size": 0,
+    "ipa2.coverage": 0,
+    "ipa2.advanced_options": "",
+    "ipa2.polish_run": 1,
+    "ipa2.phase_run": 1,
+    "ipa2.nproc": 8
 }

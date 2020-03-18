@@ -1,3 +1,6 @@
+# IPA HiFi Assembler.
+# Authors: Ivan Sovic, Zev Kronenberg, Christopher Dunn, Derek Barnett
+
 version 1.0
 
 workflow ipa2 {

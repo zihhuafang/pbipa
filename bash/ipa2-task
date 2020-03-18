@@ -24,6 +24,30 @@ case "${uname_out}" in
 esac
 echo "Machine name: '${MACHINE}'"
 
+function generate_config_from_workflow {
+    # Inputs:
+    #   params_advanced_opt
+    #   params_subsample_coverage
+    #   params_genome_size
+    #   params_polish
+    # Outputs:
+    #   output_fn
+
+    echo "config_existing_db_prefix=''" > ${output_fn}
+    echo "config_genome_size=${params_genome_size}" >> ${output_fn}
+    echo "config_coverage=${params_subsample_coverage}" >> ${output_fn}
+    echo "config_block_size=4096" >> ${output_fn}
+    echo "config_seqdb_opt='--compression 0'" >> ${output_fn}
+    echo "config_seeddb_opt='-k 32 -w 80 --space 2'" >> ${output_fn}
+    echo "config_ovl_opt=''" >> ${output_fn}
+    echo "config_ovl_min_idt=98" >> ${output_fn}
+    echo "config_ovl_min_len=1000" >> ${output_fn}
+    echo "config_ovl_filter_opt='--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4'" >> ${output_fn}
+    echo "config_use_seq_ids=0" >> ${output_fn}
+    echo "config_phasing_opt=''" >> ${output_fn}
+    echo "config_polish=${params_polish}" >> ${output_fn}
+}
+
 function generate_config_ccs {
     # Inputs:
     #   params_existing_db_prefix
@@ -39,18 +63,17 @@ function generate_config_ccs {
     #   config.sh
 
     # First, write out the workflow options.
-    echo "existing_db_prefix=${params_existing_db_prefix}" > config.sh
-    echo "genome_size=${params_genome_size}" >> config.sh
-    echo "coverage=${params_coverage}" >> config.sh
-    echo "block_size=${params_block_size}" >> config.sh
-    echo "seqdb_opt='${params_seqdb_opt}'" >> config.sh
-    echo "seeddb_opt='${params_seeddb_opt}'" >> config.sh
-    echo "ovl_opt_erc='${params_ovl_opt}'" >> config.sh
-    echo "ovl_flank_grace=${params_ovl_flank_grace}" >> config.sh
-    echo "ovl_min_idt=${params_ovl_min_idt}" >> config.sh
-    echo "ovl_min_len=${params_ovl_min_len}" >> config.sh
-    echo "ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
-    echo "use_seq_ids=${params_use_seq_ids}" >> config.sh
+    echo "config_existing_db_prefix=${params_existing_db_prefix}" > config.sh
+    echo "config_genome_size=${params_genome_size}" >> config.sh
+    echo "config_coverage=${params_coverage}" >> config.sh
+    echo "config_block_size=${params_block_size}" >> config.sh
+    echo "config_seqdb_opt='${params_seqdb_opt}'" >> config.sh
+    echo "config_seeddb_opt='${params_seeddb_opt}'" >> config.sh
+    echo "config_ovl_opt='${params_ovl_opt}'" >> config.sh
+    echo "config_ovl_min_idt=${params_ovl_min_idt}" >> config.sh
+    echo "config_ovl_min_len=${params_ovl_min_len}" >> config.sh
+    echo "config_ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
+    echo "config_use_seq_ids=${params_use_seq_ids}" >> config.sh
     echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
     echo "config_polish=${params_polish}" >> config.sh
 }
@@ -83,28 +106,28 @@ function build_db {
     # Create a FOFN of input sequences, even if the input is a
     # plain single sequence file.
     local input_reads_ext=${input_reads_fn##*.}
-    if [[ \"${input_reads_ext}\" == "fofn" ]]; then
+    if [[ "${input_reads_ext}" == "fofn" ]]; then
         cp ${input_reads_fn} input.fofn
     else
         echo "${input_reads_fn}" > input.fofn
     fi
 
     # If the user specified a DB prefix, just symlink it.
-    if [[ -z "${existing_db_prefix}" ]]; then
+    if [[ -z "${config_existing_db_prefix}" ]]; then
         IPA_TIME log.build_db.seqdb.memtime \
-        pancake seqdb --compression 0 --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+        pancake seqdb --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_reads_fn}
 
         IPA_TIME log.build_db.seeddb.memtime \
-        pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
     else
-        ln -sf ${existing_db_prefix}.seqdb ${params_db_prefix}.seqdb
-        for fn in ${existing_db_prefix}.seqdb.*
+        ln -sf ${config_existing_db_prefix}.seqdb ${params_db_prefix}.seqdb
+        for fn in ${config_existing_db_prefix}.seqdb.*
         do
             ln -sf ${fn}
         done
 
-        ln -sf ${existing_db_prefix}.seeddb ${params_db_prefix}.seeddb
-        for fn in ${existing_db_prefix}.seeddb.*
+        ln -sf ${config_existing_db_prefix}.seeddb ${params_db_prefix}.seeddb
+        for fn in ${config_existing_db_prefix}.seeddb.*
         do
             ln -sf ${fn}
         done
@@ -131,8 +154,6 @@ function ovl_prepare {
 
 function ovl_asym_run {
     helper_load_config ${params_config_sh_fn}
-    local params_ovl_opt=${ovl_opt_erc}
-    local params_ovlp_flank_grace=${ovl_flank_grace}
 
     # These are explicit inputs:
     #   params_block_id
@@ -144,12 +165,12 @@ function ovl_asym_run {
     local last_block=$((params_block_id + 1))
 
     local opt_use_seq_ids=""
-    if [[ ${use_seq_ids} -eq 1 ]]; then
+    if [[ ${config_use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--write-ids"
     fi
 
     IPA_TIME log.ovl_asym_run.pancake.memtime \
-    pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${params_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
+    pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${config_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
     IPA_TIME log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
@@ -203,7 +224,7 @@ function phasing_run {
     helper_load_config ${params_config_sh_fn}
 
     local opt_use_seq_ids=""
-    if [[ ${use_seq_ids} -eq 1 ]]; then
+    if [[ ${config_use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--alias"
     fi
 
@@ -243,11 +264,11 @@ function ovl_filter {
 
     # Filter.
     IPA_TIME log.ovl_asym_merge.m4filt.memtime \
-    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${ovl_filter_opt} --filter-log m4-readfilt.log
+    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} --filter-log m4-readfilt.log
 
     # Containment removal.
     IPA_TIME log.ovl_asym_merge.m4filtcontained.memtime \
-    falconc m4filt-contained --min-idt ${ovl_min_idt} --min-len ${ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
+    falconc m4filt-contained --min-idt ${config_ovl_min_idt} --min-len ${config_ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
 }
 
 function assemble {
@@ -273,7 +294,7 @@ function assemble {
     python3 ${IPA2_WORKSPACE}/scripts/ovlp_to_graph.py --depth-cutoff 20000 --width-cutoff 30000 --length-cutoff 15000000 --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     local opt_use_seq_ids=""
-    if [[ ${use_seq_ids} -eq 1 ]]; then
+    if [[ ${config_use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
     fi
     IPA_TIME log.assemble.graph_to_contig.memtime \
@@ -352,10 +373,10 @@ function build_contig_db {
     # Only run this stage if the polishing level is > 0.
     if [[ ${config_polish} -ge 1 ]]; then
         IPA_TIME log.build_contig_db.seqdb.memtime \
-        pancake seqdb --block-size ${block_size} ${seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+        pancake seqdb --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
         IPA_TIME log.build_contig_db.seeddb.memtime \
-        pancake seeddb ${seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
     else
         touch ${params_db_prefix}.seqdb
         touch ${params_db_prefix}.seqdb.0.seq
@@ -415,7 +436,7 @@ function map_all_run {
     num_target_blocks=$(awk '/^B/{count++}END{print count}' "${input_target_seqdb}")
     for ((target_block=0;target_block<num_target_blocks;target_block++)); do
         IPA_TIME log.map_all_run.pancake.tblock_${target_block}.memtime \
-        pancake ovl-hifi --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${ovl_opt_erc} --log-level=INFO ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
+        pancake ovl-hifi --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${config_ovl_opt} --log-level=INFO ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
     done > mapped.m4
 }
 
@@ -455,13 +476,17 @@ function polish_prepare {
     #   ${output_blocks} (same info in 1 file)
     helper_load_config ${params_config_sh_fn}
 
+    pwd > blockdir_fn.txt
+
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_polish} -ge 1 ]]; then
+        # Sort by contig ID.
         IPA_TIME log.polish_prepare.sort_read_to_contig.memtime \
         sort -k2,2 ${input_read_to_contig} > sorted.read_to_contig.csv
 
+        # Split contigs into different files.
         IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
-        awk 'BEGIN { prev = ""; count = 0} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
+        awk -v output_blocks="${output_blocks}" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
     else
         touch sorted.read_to_contig.csv
 
@@ -637,6 +662,7 @@ env | sort >&2
 
 case $1 in
   which \
+  |generate_config_from_workflow \
   |generate_config_ccs \
   |build_db \
   |ovl_prepare \

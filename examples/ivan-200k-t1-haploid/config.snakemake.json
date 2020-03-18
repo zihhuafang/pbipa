@@ -12,7 +12,7 @@
     'ovl_flank_grace': 0,
     'ovl_min_idt': 98,
     'ovl_min_len': 1000,
-    'ovl_filter_opt': '--max-diff 80 --max-cov 100 --min-cov 1 --bestn 20 --min-len 4000 --gapFilt --minDepth 4',
+    'ovl_filter_opt': '--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4',
     'polish': 1,
     'phasing_opt': ''
 }

@@ -360,6 +360,11 @@ function assemble {
     # IPA_TIME log.assemble.dedup_a_tph.memtime \
     # python3 -m falcon_kit.mains.dedup_a_tp >| a_ctg_tiling_path
     touch a_ctg_tiling_path
+
+    # Read tracking based on overlaps.
+    cat p_ctg_tiling_path a_ctg_tiling_path > all_ctg.tp
+    pblayout read-to-contig ${input_m4_phasing_merge} all_ctg.tp > tracked_reads.csv
+    grep -v "#" tracked_reads.csv | awk '{ if ($2 != "u") { print $1" "$3 } }' > read_to_contig.csv
 }
 
 function get_gfa {

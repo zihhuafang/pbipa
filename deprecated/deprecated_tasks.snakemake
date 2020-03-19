@@ -1,0 +1,107 @@
+######################
+### Read tracking. ###
+######################
+rule build_contig_db:
+    output:
+        seqdb = "build_contig_db/contigs.seqdb",
+        seeddb = "build_contig_db/contigs.seeddb",
+        seqdb_seqs = "build_contig_db/contigs.seqdb.0.seq",
+        seeddb_seeds = "build_contig_db/contigs.seeddb.0.seeds",
+    input:
+        p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        db_prefix = CONTIGS_DB_PREFIX,
+    shell: """
+        wd=$(dirname {output.seqdb})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
+        params_db_prefix="{params.db_prefix}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task build_contig_db
+    """
+checkpoint map_all_prepare:
+    output:
+        blockdir = directory('map_all_prepare/block_ids')
+    input:
+        contig_seqdb = rules.build_contig_db.output.seqdb,
+        reads_seqdb = rules.build_db.output.seqdb,
+        config_sh_fn = rules.generate_config.output.config,
+    shell: """
+        rm -f {output.blockdir}
+        mkdir -p {output.blockdir}
+        cd {output.blockdir}
+        rel=../..
+
+        input_db="$rel/{input.reads_seqdb}" \
+        output_blocks=./blocks \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task map_all_prepare
+    """
+
+def gathered_map_all_m4(wildcards):
+    checkpoint_output = checkpoints.map_all_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
+    block_ids_map_all = glob_wildcards(os.path.join(checkpoint_output, "{block_id_map_all}.txt")).block_id_map_all
+    return expand("map_all_run/{block_id_map_all}/mapped.m4",
+            block_id_map_all=block_ids_map_all)
+
+rule map_all_run:
+    output:
+        out_m4 = "map_all_run/{block_id_map_all}/mapped.m4",
+    input:
+        query_seqdb = rules.build_db.output.seqdb,
+        query_seeddb = rules.build_db.output.seeddb,
+        query_seqdb_seqs = rules.build_db.output.seqdb_seqs,
+        query_seeddb_seeds = rules.build_db.output.seeddb_seeds,
+        target_seqdb = rules.build_contig_db.output.seqdb,
+        target_seeddb = rules.build_contig_db.output.seeddb,
+        target_seqdb_seqs = rules.build_contig_db.output.seqdb_seqs,
+        target_seeddb_seeds = rules.build_contig_db.output.seeddb_seeds,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        echo "block_id={wildcards.block_id_map_all}"
+        wd=$(dirname {output.out_m4})
+        mkdir -p $wd
+        cd $wd
+        rel=../..
+
+        input_target_seqdb="$rel/{input.target_seqdb}" \
+        input_query_seqdb="$rel/{input.query_seqdb}" \
+        params_query_block_id={wildcards.block_id_map_all} \
+        params_num_threads={params.num_threads} \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task map_all_run
+    """
+
+rule map_all_merge:
+    output:
+        merged_mapped = "map_all_merge/mapped.merged.m4",
+        read_to_contig = "map_all_merge/read_to_contig.csv",
+    input:
+        fns = gathered_map_all_m4,
+        config_sh_fn = rules.generate_config.output.config,
+    params:
+        num_threads = NPROC,
+    shell: """
+        wd=$(dirname {output.merged_mapped})
+        mkdir -p $wd
+        cd $wd
+        rel=..
+
+        # We must change rel-path names when we chdir.
+        for fn in {input.fns}; do
+            echo $rel/$fn
+        done >| ./merged.fofn
+
+        input_fofn=./merged.fofn \
+        params_num_threads="{params.num_threads}" \
+        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+            time ipa2-task map_all_merge
+    """

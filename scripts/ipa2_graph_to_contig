@@ -162,10 +162,10 @@ def compose_ctg(seqs, edge_data, ctg_id, path_edges, proper_ctg):
 
     # Splice-in the rest of the path sequence.
     for vv, ww in path_edges:
-        rid, s, t, aln_score, idt, e_seq = edge_data[(vv, ww)]
+        rid, s, t, aln_score, idt, e_seq, inphase = edge_data[(vv, ww)]
         sub_seqs.append(e_seq)
-        edge_lines.append('%s %s %s %s %d %d %d %0.2f' % (
-            ctg_id, vv, ww, rid, s, t, aln_score, idt))
+        edge_lines.append('%s %s %s %s %d %d %d %0.2f %s' % (
+            ctg_id, vv, ww, rid, s, t, aln_score, idt, inphase))
         total_length += abs(s - t)
         total_score += aln_score
 
@@ -228,7 +228,7 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
         for l in f:
             l = l.strip().split()
             """001039799:E 000333411:E 000333411 17524 20167 17524 99.62 G"""
-            v, w, rid, s, t, aln_score, idt, type_ = l
+            v, w, rid, s, t, aln_score, idt, type_ = l[0:8]
             if type_ != "G":
                 continue
             r1 = v.split(":")[0]
@@ -257,7 +257,8 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
         for l in f:
             l = l.strip().split()
             """001039799:E 000333411:E 000333411 17524 20167 17524 99.62 G"""
-            v, w, rid, s, t, aln_score, idt, type_ = l
+            v, w, rid, s, t, aln_score, idt, type_ = l[0:8]
+            inphase = 'u' if len(l) < 9 else l[8]
 
             if type_ != "G":
                 continue
@@ -279,7 +280,7 @@ def run(improper_p_ctg, proper_a_ctg, preads_fasta_fn, seqdb_fn, sg_edges_list_f
                 # They were translated from reverse-dir to forward-dir coordinate system in LA4Falcon.
                 e_seq = "".join([RCMAP[c] for c in seqs[rid][t:s][::-1]])
                 assert 'B' == dir2
-            edge_data[(v, w)] = (rid, s, t, aln_score, idt, e_seq)
+            edge_data[(v, w)] = (rid, s, t, aln_score, idt, e_seq, inphase)
     time_edge_data += [time.time()]
     log_time('edge_data', time_edge_data)
 

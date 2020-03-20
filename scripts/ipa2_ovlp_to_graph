@@ -683,6 +683,9 @@ def init_string_graph(overlap_data):
         f_id, g_id, score, identity = od[:4]
         f_s, f_b, f_e, f_l = od[4:8]
         g_s, g_b, g_e, g_l = od[8:12]
+        # Valid in-phase options:   u (unknown, not applied), h (haplotype), x (cross-phase),
+        #                           f, t (starved on five or three prime ends)
+        inphase = od[12]
         overlap_pair = [f_id, g_id]
         overlap_pair.sort()
         overlap_pair = tuple(overlap_pair)
@@ -708,11 +711,13 @@ def init_string_graph(overlap_data):
                 sg.add_edge("%s:B" % g_id, "%s:B" % f_id, label="%s:%d-%d"%(f_id, f_b, 0),
                             length=abs(f_b - 0),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
                 sg.add_edge("%s:E" % f_id, "%s:E" % g_id, label="%s:%d-%d"%(g_id, g_e, g_l),
                             length=abs(g_e - g_l),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
             else:
                 """
                      f.B         f.E
@@ -725,11 +730,13 @@ def init_string_graph(overlap_data):
                 sg.add_edge("%s:E" % g_id, "%s:B" % f_id, label="%s:%d-%d"%(f_id, f_b, 0),
                             length=abs(f_b - 0),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
                 sg.add_edge("%s:E" % f_id, "%s:B" % g_id, label="%s:%d-%d"%(g_id, g_e, 0),
                             length=abs(g_e - 0),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
         else:
             if g_b < g_e:
                 """
@@ -743,11 +750,13 @@ def init_string_graph(overlap_data):
                 sg.add_edge("%s:B" % f_id, "%s:B" % g_id, label="%s:%d-%d"%(g_id, g_b, 0),
                             length=abs(g_b - 0),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
                 sg.add_edge("%s:E" % g_id, "%s:E" % f_id, label="%s:%d-%d"%(f_id, f_e, f_l),
                             length=abs(f_e - f_l),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
             else:
                 """
                                     f.B         f.E
@@ -760,11 +769,13 @@ def init_string_graph(overlap_data):
                 sg.add_edge("%s:B" % f_id, "%s:E" % g_id, label="%s:%d-%d"%(g_id, g_b, g_l),
                             length=abs(g_b - g_l),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
                 sg.add_edge("%s:B" % g_id, "%s:E" % f_id, label="%s:%d-%d"%(f_id, f_e, f_l),
                             length=abs(f_e - f_l),
                             score=-score,
-                            identity=identity)
+                            identity=identity,
+                            inphase=inphase)
 
     sg.init_reduce_dict()
     sg.mark_tr_edges()  # mark those edges that transitive redundant
@@ -782,6 +793,7 @@ def init_digraph(sg, chimer_edges, removed_edges, spur_edges):
             score = e.attr["score"]
             identity = e.attr["identity"]
             length = e.attr["length"]
+            inphase = e.attr["inphase"]
             try:
                 mo = re_label.search(label)
                 rid = mo.group(1)
@@ -808,12 +820,12 @@ def init_digraph(sg, chimer_edges, removed_edges, spur_edges):
             if not sg.e_reduce[(v, w)]:
                 assert label == "%s:%d-%d" % (rid, sp, tp)
                 nxsg.add_edge(v, w, label=label, length=length, score=score)
-                edge_data[(v, w)] = (rid, sp, tp, length, score, identity, type_)
+                edge_data[(v, w)] = (rid, sp, tp, length, score, identity, type_, inphase)
                 if w in sg.best_in:
                     nxsg.nodes[w]["best_in"] = v
 
-            line = '%s %s %s %5d %5d %5d %5.2f %s' % (
-                v, w, rid, sp, tp, score, identity, type_)
+            line = '%s %s %s %5d %5d %5d %5.2f %s %s' % (
+                v, w, rid, sp, tp, score, identity, type_, inphase)
             print(line, file=out_f)
 
     return nxsg, edge_data
@@ -834,10 +846,11 @@ def yield_from_overlap_file(overlap_file):
             #contained_etc = l[12]
             f_strand, f_start, f_end, f_len = (int(c) for c in l[4:8])
             g_strand, g_start, g_end, g_len = (int(c) for c in l[8:12])
+            inphase = 'u' if len(l) < 14 else l[13]
 
             yield (f_id, g_id, score, identity,
                                 f_strand, f_start, f_end, f_len,
-                                g_strand, g_start, g_end, g_len)
+                                g_strand, g_start, g_end, g_len, inphase)
 
 def generate_nx_string_graph(sg, lfc=False, disable_chimer_bridge_removal=False):
     LOG.debug("{}".format(sum([1 for c in sg.e_reduce.values() if c])))
@@ -1431,7 +1444,7 @@ def init_sg2(edge_data):
         assert (reverse_end(w), reverse_end(v)) in edge_data
         # if (v, w) in masked_edges:
         #    continue
-        rid, sp, tp, length, score, identity, type_ = edge_data[(v, w)]
+        rid, sp, tp, length, score, identity, type_, inphase = edge_data[(v, w)]
         if type_ != "G":
             continue
         label = "%s:%d-%d" % (rid, sp, tp)

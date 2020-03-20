@@ -1,7 +1,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 IPA2_WORKSPACE=${DIR}
-IPA2_PREFIX=${DIR}/LOCAL
+IPA2_PREFIX=${DIR}/build
 PYTHONUSERBASE=${IPA2_PREFIX}
 
 PATH=${IPA2_PREFIX}/bin:${PATH}

@@ -1,22 +1,21 @@
-CURRENT_BUILD_DIR?=build
-IPA2_PREFIX?=LOCAL
+BUILD_DIR?=build
 ENABLED_TESTS?=true
-export ENABLED_TESTS CURRENT_BUILD_DIR IPA2_PREFIX
+export ENABLED_TESTS BUILD_DIR
 
 .PHONY: all modules
 
 all: modules/pancake/build/src/pancake modules/falconc/src/falconc modules/nighthawk/build/src/nighthawk modules/racon/build-meson/racon modules/pbmm2/build/src/pbmm2 modules/pb-layout/tmp/src/pblayout
-	mkdir -p ${IPA2_PREFIX}/bin
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/pancake/build/src/pancake
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/falconc/src/falconc
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/nighthawk/build/src/nighthawk
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/pb-layout/tmp/src/pblayout
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/racon/build-meson/racon
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../modules/pbmm2/build/src/pbmm2
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../bash/ipa2-task
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
-	cd ${IPA2_PREFIX}/bin && ln -sf ../../scripts/ipa2_construct_config
+	mkdir -p ${BUILD_DIR}/bin
+	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pancake/build/src/pancake
+	cd ${BUILD_DIR}/bin && ln -sf ../../modules/falconc/src/falconc
+	cd ${BUILD_DIR}/bin && ln -sf ../../modules/nighthawk/build/src/nighthawk
+	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pb-layout/tmp/src/pblayout
+	cd ${BUILD_DIR}/bin && ln -sf ../../modules/racon/build-meson/racon
+	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pbmm2/build/src/pbmm2
+	cd ${BUILD_DIR}/bin && ln -sf ../../bash/ipa2-task
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_construct_config
 
 modules/pancake/build/src/pancake: modules/pancake/README.md
 	cd modules/pancake && make all
@@ -34,6 +33,7 @@ modules/pbmm2/build/src/pbmm2: modules/pbmm2/README.md
 	cd modules/pbmm2 && meson   --buildtype release --default-library shared --libdir lib --unity off --prefix /usr/local -Db_coverage=false -Db_sanitize=none -Dtests=false build . && ninja -C build -v
 
 modules/pb-layout/tmp/src/pblayout: modules/pb-layout/README.md
+	cd modules/pb-layout && make conf build
 
 ###########################
 ### Update the modules. ###

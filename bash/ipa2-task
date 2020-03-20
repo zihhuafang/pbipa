@@ -112,25 +112,53 @@ function build_db {
         echo "${input_reads_fn}" > input.fofn
     fi
 
-    # If the user specified a DB prefix, just symlink it.
+    local local_sample_bases=$((config_genome_size * config_coverage))
+
+    # Check if a user specified a prebuilt DB.
     if [[ -z "${config_existing_db_prefix}" ]]; then
-        IPA_TIME log.build_db.seqdb.memtime \
+        # A new DB will be built.
+
+        # Convert the entire set of input sequences into the DB.
+        IPA_TIME log.build_db.seqdb_full.memtime \
         pancake seqdb --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_reads_fn}
 
+        # Moving to ".full.seqdb" after the DB is generated ensures the <prefix>.seqdb[0-9]+.seq files exist.
+        # Otherwise, these files would have ".full" at the end of their prefix, and the workflow
+        # won't be able to find the correct files.
+        mv ${params_db_prefix}.seqdb ${params_db_prefix}.full.seqdb
+
+        # Subsample the full DB if needed.
+        if [[ ${local_sample_bases} -gt 0 ]]; then
+            IPA_TIME log.build_db.dbfilter.memtime \
+            pancake dbfilter --block-size ${config_block_size} --sampling random --random-seed 12345 --sample-bases ${local_sample_bases} ${params_db_prefix}.full ${params_db_prefix}
+        else
+            ln -sf ${params_db_prefix}.full.seqdb ${params_db_prefix}.seqdb
+        fi
+
+        # Compute the seeds from the final seqdb.
         IPA_TIME log.build_db.seeddb.memtime \
         pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+
     else
-        ln -sf ${config_existing_db_prefix}.seqdb ${params_db_prefix}.seqdb
-        for fn in ${config_existing_db_prefix}.seqdb.*
+        # If the user specified a DB prefix, just symlink it.
+        # No subsampling will be applied.
+
+        files_to_link=$(ls ${config_existing_db_prefix}.*)
+        for fn in ${files_to_link}
         do
             ln -sf ${fn}
         done
 
-        ln -sf ${config_existing_db_prefix}.seeddb ${params_db_prefix}.seeddb
-        for fn in ${config_existing_db_prefix}.seeddb.*
-        do
-            ln -sf ${fn}
-        done
+        local bn=$(basename ${config_existing_db_prefix})
+        if [[ ${bn} != ${params_db_prefix} ]]; then
+            ln -sf ${bn}.seqdb ${params_db_prefix}.full.seqdb
+            ln -sf ${bn}.seqdb ${params_db_prefix}.seqdb
+            ln -sf ${bn}.seeddb ${params_db_prefix}.seeddb
+            # Touch sentinel files. The actual DB indexes point to the original filenames
+            # anyway,and the following two files are expected to be seen by the workflow.
+            touch ${params_db_prefix}.seqdb.0.seq
+            touch ${params_db_prefix}.seeddb.0.seeds
+        fi
     fi
 }
 

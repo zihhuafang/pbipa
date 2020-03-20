@@ -58,6 +58,9 @@ git submodule update --init --recursive --remote
 source env.sh
 BUILD_DIR=build make all
 
+cd examples/ivan-200k-t1
+make
+
 # if [[ -z ${PREFIX_ARG+x} ]]; then
 #   echo "Not installing anything (branch: ${bamboo_planRepository_branchName}), exiting."
 #   exit 0

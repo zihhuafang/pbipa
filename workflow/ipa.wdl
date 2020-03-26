@@ -129,6 +129,8 @@ workflow ipa2 {
         call polish_run {
             input:
                 input_fofn = build_db.input_fofn,
+                seqdb = build_db.seqdb,
+                seqdb_seqs = build_db.seqdb_seqs,
                 p_ctg_fasta = assemble.p_ctg_fasta,
                 a_ctg_fasta = assemble.a_ctg_fasta,
                 blockdir_fn = polish_prepare.blockdir_fn,
@@ -433,6 +435,8 @@ task polish_prepare {
 task polish_run {
     input {
         File input_fofn
+        File seqdb
+        File seqdb_seqs
         File p_ctg_fasta
         File a_ctg_fasta
         File blockdir_fn
@@ -446,6 +450,7 @@ task polish_run {
         contig_id_fn="${blockdir}/block_id.~{block_id}.ctg_id"
 
         input_fofn="~{input_fofn}" \
+        input_seqdb="~{seqdb}" \
         input_p_ctg_fasta="~{p_ctg_fasta}" \
         input_a_ctg_fasta="~{a_ctg_fasta}" \
         output_consensus_fn="consensus.fasta" \

@@ -346,6 +346,8 @@ rule polish_run:
         consensus = "polish_run/{block_id_polish}/consensus.fasta",
     input:
         input_fofn = rules.build_db.output.input_fofn,
+        seqdb = rules.build_db.output.seqdb,
+        seqdb_seqs = rules.build_db.output.seqdb_seqs,
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh_fn = rules.generate_config.output.config,
@@ -361,6 +363,7 @@ rule polish_run:
         rel=../..
 
         input_fofn="$rel/{input.input_fofn}" \
+        input_seqdb="$rel/{input.seqdb}" \
         input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
         input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
         output_consensus_fn=$(basename {output.consensus}) \

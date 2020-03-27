@@ -30,6 +30,8 @@ function generate_config_from_workflow {
     #   params_subsample_coverage
     #   params_genome_size
     #   params_polish
+    # Params:
+    #   params_log_level
     # Outputs:
     #   output_fn
 
@@ -97,6 +99,8 @@ function build_db {
     # Params:
     #   params_db_prefix
     #   params_config_sh_fn
+    #   params_num_threads
+    #   params_log_level
     # Outputs:
     #   {db_prefix}.rdb
     #   input.fofn
@@ -120,7 +124,7 @@ function build_db {
 
         # Convert the entire set of input sequences into the DB.
         IPA_TIME log.build_db.seqdb_full.memtime \
-        pancake seqdb --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+        pancake seqdb --log-level ${params_log_level}  --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_reads_fn}
 
         # Moving to ".full.seqdb" after the DB is generated ensures the <prefix>.seqdb[0-9]+.seq files exist.
         # Otherwise, these files would have ".full" at the end of their prefix, and the workflow
@@ -130,14 +134,14 @@ function build_db {
         # Subsample the full DB if needed.
         if [[ ${local_sample_bases} -gt 0 ]]; then
             IPA_TIME log.build_db.dbfilter.memtime \
-            pancake dbfilter --block-size ${config_block_size} --sampling random --random-seed 12345 --sample-bases ${local_sample_bases} ${params_db_prefix}.full ${params_db_prefix}
+            pancake dbfilter --log-level ${params_log_level} --block-size ${config_block_size} --sampling random --random-seed 12345 --sample-bases ${local_sample_bases} ${params_db_prefix}.full ${params_db_prefix}
         else
             ln -sf ${params_db_prefix}.full.seqdb ${params_db_prefix}.seqdb
         fi
 
         # Compute the seeds from the final seqdb.
         IPA_TIME log.build_db.seeddb.memtime \
-        pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb --log-level ${params_log_level} --num-threads ${params_num_threads} ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 
     else
         # If the user specified a DB prefix, just symlink it.
@@ -165,6 +169,8 @@ function build_db {
 function ovl_prepare {
     # Input:
     #   input_db
+    # Params:
+    #   params_log_level
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
@@ -188,6 +194,8 @@ function ovl_asym_run {
     #   params_num_threads
     #   params_config_sh_fn
     #   params_db_prefix
+    # Params:
+    #   params_log_level
 
     local local_db_prefix=$(dirname ${input_seqdb})/${params_db_prefix}
     local last_block=$((params_block_id + 1))
@@ -198,7 +206,7 @@ function ovl_asym_run {
     fi
 
     IPA_TIME log.ovl_asym_run.pancake.memtime \
-    pancake ovl-hifi --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${config_ovl_opt} --log-level=INFO ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
+    pancake ovl-hifi --log-level ${params_log_level} --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${config_ovl_opt} ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
     IPA_TIME log.ovl_asym_run.sort.memtime \
     sort -k 1,1 ovl.m4 > ovl.sorted.m4
@@ -211,6 +219,8 @@ function ovl_asym_merge {
     # Explicit parameters:
     #   params_num_threads
     #   params_config_sh_fn
+    # Params:
+    #   params_log_level
 
     cat ${input_fofn}
     while read fn; do
@@ -233,6 +243,8 @@ function phasing_prepare {
     #   output_blockdir_fn
     #   *.m4 in cwd
     #   ${output_blocks} (same info in 1 file)
+    # Params:
+    #   params_log_level
 
     helper_load_config ${params_config_sh_fn}
 
@@ -267,6 +279,7 @@ function phasing_run {
     #   output_outdir_fn
     # Parameters:
     #   params_num_threads
+    #   params_log_level
 
     helper_load_config ${params_config_sh_fn}
 
@@ -280,7 +293,7 @@ function phasing_run {
     fi
 
     IPA_TIME log.phasing_run.nighthawk_phase.memtime \
-    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+    nighthawk phase --log-level ${params_log_level} --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 }
 
 function phasing_merge {
@@ -292,6 +305,7 @@ function phasing_merge {
     #   output_m4
     # Parameters:
     #   params_num_threads
+    #   params_log_level
 
     helper_load_config ${params_config_sh_fn}
 
@@ -315,6 +329,7 @@ function ovl_filter {
     # Parameters:
     #   params_num_threads
     #   params_config_sh_fn
+    #   params_log_level
 
     helper_load_config ${params_config_sh_fn}
 
@@ -337,6 +352,8 @@ function assemble {
     # These are explicit inputs:
     #   params_ctg_prefix
     #   params_config_sh_fn
+    # Params:
+    #   params_log_level
 
     ln -sf ${input_m4} preads.m4
     ln -sf ${input_reads}
@@ -376,7 +393,7 @@ function assemble {
 
     # Deduplicate the associate contigs.
     IPA_TIME log.assemble.dedup_a_ctg.memtime \
-    pblayout dedup-actg a_ctg_all.fasta a_ctg_all_tiling_path a_ctg.fasta a_ctg_tiling_path --hpc --log-level INFO 2>&1 >| tee fc_dedup_actg.log
+    pblayout dedup-actg  --log-level ${params_log_level} a_ctg_all.fasta a_ctg_all_tiling_path a_ctg.fasta a_ctg_tiling_path --hpc 2>&1 >| tee fc_dedup_actg.log
     touch a_ctg.fasta.fai
 
     if [[ -s a_ctg.fasta ]]; then
@@ -422,6 +439,8 @@ function build_contig_db {
     # Params:
     #   params_db_prefix
     #   params_config_sh_fn
+    #   params_num_threads
+    #   params_log_level
     # Outputs:
     #   {db_prefix}.rdb
 
@@ -430,10 +449,10 @@ function build_contig_db {
     # Only run this stage if the polishing level is > 0.
     if [[ ${config_polish_run} -ge 1 ]]; then
         IPA_TIME log.build_contig_db.seqdb.memtime \
-        pancake seqdb --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+        pancake seqdb --log-level ${params_log_level} --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
         IPA_TIME log.build_contig_db.seeddb.memtime \
-        pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb --log-level ${params_log_level} --num-threads ${params_num_threads} ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
     else
         touch ${params_db_prefix}.seqdb
         touch ${params_db_prefix}.seqdb.0.seq
@@ -447,6 +466,7 @@ function map_all_prepare {
     #   input_db
     # Params:
     #   params_config_sh_fn
+    #   params_log_level
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
@@ -478,6 +498,7 @@ function map_all_run {
     #   params_query_block_id
     #   params_num_threads
     #   params_config_sh_fn
+    #   params_log_level
 
     ### Note: no need to specially check for ${config_polish_run} here, because
     ### mapping will come up empty since there are zero target blocks.
@@ -493,7 +514,7 @@ function map_all_run {
     num_target_blocks=$(awk '/^B/{count++}END{print count}' "${input_target_seqdb}")
     for ((target_block=0;target_block<num_target_blocks;target_block++)); do
         IPA_TIME log.map_all_run.pancake.tblock_${target_block}.memtime \
-        pancake ovl-hifi --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${config_ovl_opt} --log-level=INFO ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
+        pancake ovl-hifi --log-level ${params_log_level} --bestn 1 --num-threads ${params_num_threads} --one-hit-per-target ${opt_use_seq_ids} ${config_ovl_opt} ${local_target_db_prefix} ${local_query_db_prefix} ${target_block} ${params_query_block_id} ${local_last_query_block}
     done > mapped.m4
 }
 
@@ -502,6 +523,7 @@ function map_all_merge {
     #   input_fofn
     # Params:
     #   params_config_sh_fn
+    #   params_log_level
     helper_load_config ${params_config_sh_fn}
 
     ### Note: no need to specially check for ${config_polish_run} here, because
@@ -528,6 +550,7 @@ function polish_prepare {
     #   input_a_ctg_fasta_fai
     # Params:
     #   params_config_sh_fn
+    #   params_log_level
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
@@ -572,12 +595,13 @@ function polish_run {
     #   params_block_id
     #   params_num_threads
     #   params_config_sh_fn
+    #   params_log_level
 
     helper_load_config ${params_config_sh_fn}
 
     # Extract the contig sequence.
     draft_fn="draft.fasta"
-    pancake seqfetch --out-fmt fasta ${draft_fn} ${params_ctg_id_fn} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+    pancake seqfetch --log-level ${params_log_level} --out-fmt fasta ${draft_fn} ${params_ctg_id_fn} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
     # Only run if the polishing level is > 0.
     if [[ ${config_polish_run} -ge 1 ]]; then
@@ -588,11 +612,11 @@ function polish_run {
         if [[ ${config_use_seq_ids} -eq 1 ]]; then
             opt_use_seq_ids="--alias ${input_seqdb}"
         fi
-        pancake seqfetch ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${params_reads_to_contig_fn} ${input_seqdb}
+        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${params_reads_to_contig_fn} ${input_seqdb}
 
         # Map.
         IPA_TIME log.polish_run.pbmm2.memtime \
-        pbmm2 align --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
+        pbmm2 align --log-level ${params_log_level} --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
 
         # Filter.
         IPA_TIME log.polish_run.falconc_bam_filter.memtime \
@@ -621,6 +645,7 @@ function polish_merge {
     #   input_fofn
     # Params:
     #   params_config_sh_fn
+    #   params_log_level
     # Output:
     #   output_fasta
     helper_load_config ${params_config_sh_fn}
@@ -644,6 +669,8 @@ function final_collect {
     #   output_assembly_final_fasta
     #   output_p_ctg_fasta
     #   output_a_ctg_fasta
+    # Params:
+    #   params_log_level
 
     ln -sf ${input_assembly_merged_fasta} ${output_assembly_final_fasta}
     ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}

@@ -12,6 +12,7 @@ POLISH_RUN = config['ipa2.polish_run']
 PHASING_RUN = config['ipa2.phase_run']
 NPROC = config['ipa2.nproc']
 
+LOG_LEVEL = "INFO"
 READS_DB_PREFIX = "reads"
 CONTIGS_DB_PREFIX = "contigs"
 
@@ -32,6 +33,7 @@ rule generate_config:
         advanced_opt_str = ADVANCED_OPTIONS,
         polish_run = POLISH_RUN,
         phase_run = PHASING_RUN,
+        log_level = LOG_LEVEL,
     shell: """
         mkdir -p generate_config
         cd generate_config
@@ -43,6 +45,7 @@ rule generate_config:
         params_polish_run="{params.polish_run}" \
         params_phase_run="{params.phase_run}" \
         output_fn="generated.config.sh" \
+        params_log_level="{params.log_level}" \
             time ipa2-task generate_config_from_workflow
     """
 
@@ -59,6 +62,7 @@ rule build_db:
     params:
         db_prefix = READS_DB_PREFIX,
         num_threads = NPROC,
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.seqdb})
         mkdir -p $wd
@@ -69,6 +73,7 @@ rule build_db:
         params_db_prefix="{params.db_prefix}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_num_threads={params.num_threads} \
+        params_log_level="{params.log_level}" \
             time ipa2-task build_db
     """
 
@@ -77,6 +82,8 @@ checkpoint ovl_prepare:
         blockdir = directory('ovl_prepare/block_ids'),
     input:
         seqdb = rules.build_db.output.seqdb,
+    params:
+        log_level = LOG_LEVEL,
     shell: """
         rm -f {output.blockdir}
         mkdir -p {output.blockdir}
@@ -85,6 +92,7 @@ checkpoint ovl_prepare:
 
         input_db="$rel/{input.seqdb}" \
         output_blocks=./blocks \
+        params_log_level="{params.log_level}" \
             time ipa2-task ovl_prepare
     """
 
@@ -107,6 +115,7 @@ rule ovl_asym_run:
     params:
         num_threads = NPROC,
         db_prefix = READS_DB_PREFIX,
+        log_level = LOG_LEVEL,
     shell: """
         echo "block_id={wildcards.block_id}"
         wd=$(dirname {output.out_m4})
@@ -123,6 +132,7 @@ rule ovl_asym_run:
         params_db_prefix="{params.db_prefix}" \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task ovl_asym_run
     """
 
@@ -136,6 +146,7 @@ rule ovl_asym_merge:
     params:
         num_threads = NPROC,
         db_prefix = READS_DB_PREFIX,
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.m4_merged_raw})
         mkdir -p $wd
@@ -151,6 +162,7 @@ rule ovl_asym_merge:
         params_num_threads="{params.num_threads}" \
         params_db_prefix={params.db_prefix} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task ovl_asym_merge
     """
 
@@ -161,6 +173,8 @@ checkpoint phasing_prepare:
         seqdb = rules.build_db.output.seqdb,
         m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         config_sh_fn = rules.generate_config.output.config,
+    params:
+        log_level = LOG_LEVEL,
     shell: """
         rm -f {output.blockdir}
         mkdir -p {output.blockdir}
@@ -171,6 +185,7 @@ checkpoint phasing_prepare:
         output_blockdir_fn="blockdir_fn.txt" \
         input_m4="$rel/{input.m4}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task phasing_prepare
     """
 
@@ -192,6 +207,7 @@ rule phasing_run:
         seqdb_seqs = rules.build_db.output.seqdb_seqs,
     params:
         num_threads = NPROC,
+        log_level = LOG_LEVEL,
     shell: """
         echo "block_id_ph={wildcards.block_id_ph}"
         wd=$(dirname {output.out_keep_m4})
@@ -206,6 +222,7 @@ rule phasing_run:
         output_outdir_fn="outdir_fn.txt" \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task phasing_run
 
     """
@@ -219,6 +236,7 @@ rule phasing_merge:
         config_sh_fn = rules.generate_config.output.config,
     params:
         num_threads = NPROC,
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.gathered_m4})
         mkdir -p $wd
@@ -245,6 +263,7 @@ rule phasing_merge:
         output_m4="ovl.phased.m4" \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task phasing_merge
     """
 
@@ -257,6 +276,7 @@ rule ovl_filter:
         config_sh_fn = rules.generate_config.output.config,
     params:
         num_threads = NPROC,
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.m4_final})
         mkdir -p $wd
@@ -268,6 +288,7 @@ rule ovl_filter:
         output_m4_chimerfilt=$(basename {output.m4_chimerfilt}) \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task ovl_filter
     """
 
@@ -293,6 +314,7 @@ rule assemble:
     params:
         num_threads = NPROC,
         ctg_prefix = CTG_PREFIX,
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.p_ctg_fasta})
         mkdir -p $wd
@@ -306,6 +328,7 @@ rule assemble:
         params_ctg_prefix={params.ctg_prefix} \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task assemble
     """
 
@@ -323,6 +346,8 @@ checkpoint polish_prepare:
         # then the output "polished" contigs will be just the draft sequences.
         p_ctg_fasta_fai = rules.assemble.output.p_ctg_fa_fai,
         a_ctg_fasta_fai = rules.assemble.output.a_ctg_fa_fai,
+    params:
+        log_level = LOG_LEVEL,
     shell: """
         rm -f {output.blockdir}
         mkdir -p {output.blockdir}
@@ -335,6 +360,7 @@ checkpoint polish_prepare:
         output_blocks=./blocks \
         output_blockdir_fn="blockdir_fn.txt" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task polish_prepare
     """
 def gathered_polish(wildcards):
@@ -357,6 +383,7 @@ rule polish_run:
         num_threads = NPROC,
         reads_to_contig_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.reads"),
         ctg_id_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.ctg_id"),
+        log_level = LOG_LEVEL,
     shell: """
         echo "block_id={wildcards.block_id_polish}"
         wd=$(dirname {output.consensus})
@@ -374,6 +401,7 @@ rule polish_run:
         params_block_id={wildcards.block_id_polish} \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task polish_run
     """
 
@@ -385,6 +413,7 @@ rule polish_merge:
         config_sh_fn = rules.generate_config.output.config,
     params:
         num_threads = NPROC,
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.consensus_merged})
         mkdir -p $wd
@@ -400,6 +429,7 @@ rule polish_merge:
         output_fasta=$(basename {output.consensus_merged}) \
         params_num_threads="{params.num_threads}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_log_level="{params.log_level}" \
             time ipa2-task polish_merge
     """
 
@@ -412,6 +442,8 @@ rule final:
         assembly_merged_fasta = rules.polish_merge.output.consensus_merged,
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
+    params:
+        log_level = LOG_LEVEL,
     shell: """
         wd=$(dirname {output.assembly_final_fasta})
         mkdir -p $wd
@@ -424,6 +456,7 @@ rule final:
         output_assembly_final_fasta=$(basename {output.assembly_final_fasta}) \
         output_p_ctg_fasta=$(basename {output.p_ctg_fasta}) \
         output_a_ctg_fasta=$(basename {output.a_ctg_fasta}) \
+        params_log_level="{params.log_level}" \
             time ipa2-task final_collect
     """
 

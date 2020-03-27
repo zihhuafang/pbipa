@@ -97,6 +97,7 @@ function build_db {
     # Params:
     #   params_db_prefix
     #   params_config_sh_fn
+    #   params_num_threads
     # Outputs:
     #   {db_prefix}.rdb
     #   input.fofn
@@ -137,7 +138,7 @@ function build_db {
 
         # Compute the seeds from the final seqdb.
         IPA_TIME log.build_db.seeddb.memtime \
-        pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb --num-threads ${params_num_threads} ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 
     else
         # If the user specified a DB prefix, just symlink it.
@@ -422,6 +423,7 @@ function build_contig_db {
     # Params:
     #   params_db_prefix
     #   params_config_sh_fn
+    #   params_num_threads
     # Outputs:
     #   {db_prefix}.rdb
 
@@ -433,7 +435,7 @@ function build_contig_db {
         pancake seqdb --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
         IPA_TIME log.build_contig_db.seeddb.memtime \
-        pancake seeddb ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb --num-threads ${params_num_threads} ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
     else
         touch ${params_db_prefix}.seqdb
         touch ${params_db_prefix}.seqdb.0.seq

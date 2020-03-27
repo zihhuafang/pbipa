@@ -58,6 +58,7 @@ rule build_db:
         config_sh_fn = rules.generate_config.output.config,
     params:
         db_prefix = READS_DB_PREFIX,
+        num_threads = NPROC,
     shell: """
         wd=$(dirname {output.seqdb})
         mkdir -p $wd
@@ -67,6 +68,7 @@ rule build_db:
         input_reads_fn="{input.reads_fn}" \
         params_db_prefix="{params.db_prefix}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_num_threads={params.num_threads} \
             time ipa2-task build_db
     """
 

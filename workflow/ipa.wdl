@@ -37,6 +37,7 @@ workflow ipa2 {
             reads_fn = reads_fn,
             db_prefix = reads_db_prefix,
             config_sh_fn = generate_config.config_sh_fn,
+            num_threads = nproc,
     }
 
     call ovl_prepare {
@@ -182,12 +183,14 @@ task build_db {
         File reads_fn
         File config_sh_fn
         String db_prefix
+        Int num_threads
     }
     command {
         set -e
         input_reads_fn="${reads_fn}" \
         params_db_prefix="${db_prefix}" \
         params_config_sh_fn="${config_sh_fn}" \
+        params_num_threads=${num_threads} \
             time ipa2-task build_db
     }
     output {

@@ -51,11 +51,11 @@ rule generate_config:
 
 rule build_db:
     output:
-        seqdb = "build_db/reads.seqdb",
-        seeddb = "build_db/reads.seeddb",
-        seqdb_seqs = "build_db/reads.seqdb.0.seq",
-        seeddb_seeds = "build_db/reads.seeddb.0.seeds",
-        input_fofn = "build_db/input.fofn",
+        seqdb = protected("build_db/reads.seqdb"),
+        seeddb = protected("build_db/reads.seeddb"),
+        seqdb_seqs = protected("build_db/reads.seqdb.0.seq"),
+        seeddb_seeds = protected("build_db/reads.seeddb.0.seeds"),
+        input_fofn = protected("build_db/input.fofn"),
     input:
         reads_fn = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
@@ -104,8 +104,8 @@ def gathered_m4(wildcards):
 
 rule ovl_asym_run:
     output:
-        out_m4 = "ovl_asym_run/{block_id}/ovl.m4",
-        out_sorted_m4 = "ovl_asym_run/{block_id}/ovl.sorted.m4",
+        out_m4 = temp("ovl_asym_run/{block_id}/ovl.m4"),
+        out_sorted_m4 = temp("ovl_asym_run/{block_id}/ovl.sorted.m4"),
     input:
         seqdb = rules.build_db.output.seqdb,
         seeddb = rules.build_db.output.seeddb,
@@ -229,7 +229,7 @@ rule phasing_run:
 
 rule phasing_merge:
     output:
-        gathered_m4 = "phasing_merge/ovl.phased.m4",
+        gathered_m4 = protected("phasing_merge/ovl.phased.m4"),
     input:
         original_m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         fns = gathered_prepared_phasing_m4,
@@ -269,7 +269,7 @@ rule phasing_merge:
 
 rule ovl_filter:
     output:
-        m4_final = "ovl_filter/ovl.final.m4",
+        m4_final = protected("ovl_filter/ovl.final.m4"),
         m4_chimerfilt = "ovl_filter/ovl.chimerfilt.m4",
     input:
         m4 = rules.phasing_merge.output.gathered_m4,
@@ -294,12 +294,12 @@ rule ovl_filter:
 
 rule assemble:
     output:
-        p_ctg_fasta = "assemble/p_ctg.fasta",
-        a_ctg_fasta = "assemble/a_ctg.fasta",
+        p_ctg_fasta = protected("assemble/p_ctg.fasta"),
+        a_ctg_fasta = protected("assemble/a_ctg.fasta"),
         p_ctg_tiling_path = "assemble/p_ctg_tiling_path",
         a_ctg_tiling_path = "assemble/a_ctg_tiling_path",
-        p_ctg_fa_fai = "assemble/p_ctg.fasta.fai",
-        a_ctg_fa_fai = "assemble/a_ctg.fasta.fai",
+        p_ctg_fa_fai = protected("assemble/p_ctg.fasta.fai"),
+        a_ctg_fa_fai = protected("assemble/a_ctg.fasta.fai"),
         read_to_contig = "assemble/read_to_contig.csv",
 #        asm_gfa = "assemble/asm.gfa",
 #        sg_gfa = "assemble/sg.gfa",
@@ -371,7 +371,7 @@ def gathered_polish(wildcards):
 
 rule polish_run:
     output:
-        consensus = "polish_run/{block_id_polish}/consensus.fasta",
+        consensus = temp("polish_run/{block_id_polish}/consensus.fasta"),
     input:
         input_fofn = rules.build_db.output.input_fofn,
         seqdb = rules.build_db.output.seqdb,
@@ -407,8 +407,8 @@ rule polish_run:
 
 rule polish_merge:
     output:
-        consensus_merged = "polish_merge/assembly.merged.fasta",
-        consensus_merged_fai = "polish_merge/assembly.merged.fasta.fai",
+        consensus_merged = protected("polish_merge/assembly.merged.fasta"),
+        consensus_merged_fai = protected("polish_merge/assembly.merged.fasta.fai"),
     input:
         fns = gathered_polish,
         config_sh_fn = rules.generate_config.output.config,
@@ -436,9 +436,9 @@ rule polish_merge:
 
 rule final:
     output:
-        assembly_final_fasta = "final/assembly.final.fasta",
-        p_ctg_fasta = "final/draft.p_ctg.fasta",
-        a_ctg_fasta = "final/draft.a_ctg.fasta",
+        assembly_final_fasta = protected("final/assembly.final.fasta"),
+        p_ctg_fasta = protected("final/draft.p_ctg.fasta"),
+        a_ctg_fasta = protected("final/draft.a_ctg.fasta"),
     input:
         assembly_merged_fasta = rules.polish_merge.output.consensus_merged,
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,

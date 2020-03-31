@@ -408,6 +408,7 @@ rule polish_run:
 rule polish_merge:
     output:
         consensus_merged = "polish_merge/assembly.merged.fasta",
+        consensus_merged_fai = "polish_merge/assembly.merged.fasta.fai",
     input:
         fns = gathered_polish,
         config_sh_fn = rules.generate_config.output.config,

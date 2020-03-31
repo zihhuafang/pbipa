@@ -665,6 +665,11 @@ function polish_merge {
 
     # Merge.
     cat ${input_fofn} | xargs cat > ${output_fasta}
+
+    touch ${output_fasta}.fai
+    if [[ -s ${output_fasta} ]]; then
+        samtools faidx ${output_fasta}
+    fi
 }
 
 function final_collect {

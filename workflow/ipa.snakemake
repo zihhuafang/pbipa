@@ -197,9 +197,9 @@ def gathered_prepared_phasing_m4(wildcards):
 
 rule phasing_run:
     output:
-        out_keep_m4 = temp("phasing_run/{block_id_ph}/ovl.phased.m4"),
-        out_scraps_m4 = temp("phasing_run/{block_id_ph}/ovl.phased.m4.scraps"),
-        out_outdir_fn = temp("phasing_run/{block_id_ph}/outdir_fn.txt"),
+        out_keep_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4",
+        out_scraps_m4 = "phasing_run/{block_id_ph}/ovl.phased.m4.scraps",
+        out_outdir_fn = "phasing_run/{block_id_ph}/outdir_fn.txt",
     input:
         blockdir = rules.phasing_prepare.output.blockdir,
         config_sh_fn = rules.generate_config.output.config,

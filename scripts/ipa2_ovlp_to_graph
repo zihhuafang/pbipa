@@ -683,9 +683,13 @@ def init_string_graph(overlap_data):
         f_id, g_id, score, identity = od[:4]
         f_s, f_b, f_e, f_l = od[4:8]
         g_s, g_b, g_e, g_l = od[8:12]
-        # Valid in-phase options:   u (unknown, not applied), h (haplotype), x (cross-phase),
-        #                           f, t (starved on five or three prime ends)
-        inphase = od[12]
+        # Valid in-phase options:
+        #     i: in phase (keepers)
+        #     x: not in phase (scraps)
+        #     f: five prime overlaps were all phased - turns off phasing  (keepers)
+        #     t: three prime overlaps were all phased - turns off phasing (keepers)
+        #     n: no cross phase overlaps were removed (keepers)
+        inphase = od[13]
         overlap_pair = [f_id, g_id]
         overlap_pair.sort()
         overlap_pair = tuple(overlap_pair)

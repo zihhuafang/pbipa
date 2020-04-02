@@ -233,7 +233,21 @@ function ovl_asym_merge {
     echo ovl.merged.m4 > ovl.merged.fofn
 
     # Filter out any local alignments. Important for phasing.
-    awk '{ if ($13 != "u") { print } }' ovl.merged.m4 > ovl.nonlocal.m4
+    awk '{ if ($13 != "u") { print } }' ovl.merged.m4 > tmp.ovl
+
+    # Tag the piles then sort them on pile boundary, by pile similarity
+    IPA_TIME log.ovl_asym_merge.nighthawk_membership.memtime \
+    nighthawk membership --log-level ${params_log_level} tmp.ovl > tmp2.ovl
+
+    # Cleanup 1
+    rm tmp.ovl
+
+    # Sort on membership tag
+    IPA_TIME log.ovl_asym_merge.nighthawk_membership_sort.memtime \
+    sort -k14,14 tmp2.ovl > ovl.nonlocal.m4
+
+    # Cleanup
+    rm tmp2.ovl
 }
 
 function phasing_prepare {

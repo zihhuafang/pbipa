@@ -25,6 +25,7 @@ config_seeddb_opt = -k 32 -w 80 --space 2
 config_ovl_opt =
 config_ovl_min_idt = 98
 config_ovl_min_len = 1000
+config_autocomp_max_cov = 1
 config_ovl_filter_opt = --max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4
 config_use_seq_ids = 0
 config_phasing_opt =

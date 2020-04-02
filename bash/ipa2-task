@@ -335,9 +335,17 @@ function ovl_filter {
 
     echo ${input_m4} > ovl.fofn
 
+    local opt_autocomp=""
+    if [[ $config_autocomp_max_cov -eq 1 ]]; then
+        falconc ovl-cov-stats --in-fn=ovl.fofn > covstat.json
+        local target_val=$(python3 -c "import json; d = json.loads(open('covstat.json').read()); print(int(d['median'] * 4))")
+        opt_autocomp="--max-cov ${target_val} --max-diff ${target_val}"
+        echo "Computed maximum allowed coverage: ${target_val}"
+    fi
+
     # Filter.
     IPA_TIME log.ovl_asym_merge.m4filt.memtime \
-    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} --filter-log m4-readfilt.log
+    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} ${opt_autocomp} --filter-log m4-readfilt.log
 
     # Containment removal.
     IPA_TIME log.ovl_asym_merge.m4filtcontained.memtime \

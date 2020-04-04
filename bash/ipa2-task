@@ -357,9 +357,14 @@ function ovl_filter {
         echo "Computed maximum allowed coverage: ${target_val}"
     fi
 
-    # Filter.
+    # Symlink our solitary .m4 file for indexing.
+    ln -sf ${input_m4} .
+    local local_m4=$(basename ${input_m4})
+
+    # Filter. Create and use a new M4 index for speed, and multithread
+    # over portions of that index.
     IPA_TIME log.ovl_asym_merge.m4filt.memtime \
-    falconc  m4filt-ipaRunner --n-proc ${params_num_threads} --ovls-fofn ovl.fofn --output-fn ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} ${opt_autocomp} --filter-log m4-readfilt.log
+    falconc  m4filt --n-proc ${params_num_threads} --in ${local_m4} --out ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} ${opt_autocomp} --filter-log m4-readfilt.log
 
     # Containment removal.
     IPA_TIME log.ovl_asym_merge.m4filtcontained.memtime \

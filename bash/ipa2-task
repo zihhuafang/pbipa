@@ -209,7 +209,7 @@ function ovl_asym_run {
     pancake ovl-hifi --log-level ${params_log_level} --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${config_ovl_opt} ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
     IPA_TIME log.ovl_asym_run.sort.memtime \
-    sort -k 1,1 ovl.m4 > ovl.sorted.m4
+    sort -k1 ovl.m4 > ovl.sorted.m4
 }
 
 function ovl_asym_merge {
@@ -229,7 +229,7 @@ function ovl_asym_merge {
 
     # Merge sort.
     IPA_TIME log.ovl_asym_merge.mergesort.memtime \
-    sort -k1,1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
+    sort -k1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
     echo ovl.merged.m4 > ovl.merged.fofn
 
     # Filter out any local alignments. Important for phasing.
@@ -244,7 +244,7 @@ function ovl_asym_merge {
 
     # Sort on membership tag
     IPA_TIME log.ovl_asym_merge.nighthawk_membership_sort.memtime \
-    sort -k14,14 tmp2.ovl > ovl.nonlocal.m4
+    sort -k14 tmp2.ovl > ovl.nonlocal.m4
 
     # Cleanup
     rm tmp2.ovl
@@ -597,7 +597,7 @@ function polish_prepare {
     if [[ ${config_polish_run} -ge 1 ]]; then
         # Sort by contig ID.
         IPA_TIME log.polish_prepare.sort_read_to_contig.memtime \
-        sort -k2,2 ${input_read_to_contig} > sorted.read_to_contig.csv
+        sort -k2 ${input_read_to_contig} > sorted.read_to_contig.csv
 
         # Split contigs into different files.
         IPA_TIME log.polish_prepare.split_read_to_contig.memtime \

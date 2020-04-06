@@ -42,10 +42,10 @@ function generate_config_from_workflow {
     echo "${params_advanced_opt}" >> input_opt.cfg
 
     # Parse and generate the config as Bash.
-    cat input_opt.cfg | ipa2_construct_config --out-fmt bash --out-fn ${output_fn}
+    falconc ipa2-construct-config --in-fn=input_opt.cfg --out-fn=${output_fn} --out-fmt bash
 
     # Write the config as JSON as well, for workflows which support it.
-    cat input_opt.cfg | ipa2_construct_config --out-fmt json --out-fn ${output_fn}.json
+    falconc ipa2-construct-config --in-fn=input_opt.cfg --out-fn=${output_fn}.json --out-fmt json
 }
 
 function generate_config_ccs {

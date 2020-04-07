@@ -32,6 +32,7 @@ function generate_config_from_workflow {
     #   params_polish
     # Params:
     #   params_log_level
+    #   params_tmp_dir
     # Outputs:
     #   output_fn
 
@@ -101,6 +102,7 @@ function build_db {
     #   params_config_sh_fn
     #   params_num_threads
     #   params_log_level
+    #   params_tmp_dir
     # Outputs:
     #   {db_prefix}.rdb
     #   input.fofn
@@ -170,7 +172,9 @@ function ovl_prepare {
     # Input:
     #   input_db
     # Params:
+    #   params_max_nchunks
     #   params_log_level
+    #   params_tmp_dir
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
@@ -196,6 +200,7 @@ function ovl_asym_run {
     #   params_db_prefix
     # Params:
     #   params_log_level
+    #   params_tmp_dir
 
     local local_db_prefix=$(dirname ${input_seqdb})/${params_db_prefix}
     local last_block=$((params_block_id + 1))
@@ -221,6 +226,7 @@ function ovl_asym_merge {
     #   params_config_sh_fn
     # Params:
     #   params_log_level
+    #   params_tmp_dir
 
     cat ${input_fofn}
     while read fn; do
@@ -244,7 +250,9 @@ function phasing_prepare {
     #   *.m4 in cwd
     #   ${output_blocks} (same info in 1 file)
     # Params:
+    #   params_max_nchunks
     #   params_log_level
+    #   params_tmp_dir
 
     helper_load_config ${params_config_sh_fn}
 
@@ -291,6 +299,7 @@ function phasing_run {
     # Parameters:
     #   params_num_threads
     #   params_log_level
+    #   params_tmp_dir
 
     helper_load_config ${params_config_sh_fn}
 
@@ -317,6 +326,7 @@ function phasing_merge {
     # Parameters:
     #   params_num_threads
     #   params_log_level
+    #   params_tmp_dir
 
     helper_load_config ${params_config_sh_fn}
 
@@ -341,6 +351,7 @@ function ovl_filter {
     #   params_num_threads
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
 
     helper_load_config ${params_config_sh_fn}
 
@@ -378,6 +389,7 @@ function assemble {
     #   params_config_sh_fn
     # Params:
     #   params_log_level
+    #   params_tmp_dir
 
     ln -sf ${input_m4} preads.m4
 
@@ -473,6 +485,7 @@ function build_contig_db {
     #   params_config_sh_fn
     #   params_num_threads
     #   params_log_level
+    #   params_tmp_dir
     # Outputs:
     #   {db_prefix}.rdb
 
@@ -499,6 +512,7 @@ function map_all_prepare {
     # Params:
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
@@ -531,6 +545,7 @@ function map_all_run {
     #   params_num_threads
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
 
     ### Note: no need to specially check for ${config_polish_run} here, because
     ### mapping will come up empty since there are zero target blocks.
@@ -556,6 +571,7 @@ function map_all_merge {
     # Params:
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
     helper_load_config ${params_config_sh_fn}
 
     ### Note: no need to specially check for ${config_polish_run} here, because
@@ -581,8 +597,10 @@ function polish_prepare {
     #   input_p_ctg_fasta_fai
     #   input_a_ctg_fasta_fai
     # Params:
+    #   params_max_nchunks
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
     # Output:
     #   *.txt in cwd
     #   ${output_blocks} (same info in 1 file)
@@ -628,6 +646,7 @@ function polish_run {
     #   params_num_threads
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
 
     helper_load_config ${params_config_sh_fn}
 
@@ -678,6 +697,7 @@ function polish_merge {
     # Params:
     #   params_config_sh_fn
     #   params_log_level
+    #   params_tmp_dir
     # Output:
     #   output_fasta
     helper_load_config ${params_config_sh_fn}
@@ -708,6 +728,7 @@ function final_collect {
     #   output_a_ctg_fasta
     # Params:
     #   params_log_level
+    #   params_tmp_dir
 
     ln -sf ${input_assembly_merged_fasta} ${output_assembly_final_fasta}
     ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}

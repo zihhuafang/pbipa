@@ -233,21 +233,7 @@ function ovl_asym_merge {
     echo ovl.merged.m4 > ovl.merged.fofn
 
     # Filter out any local alignments. Important for phasing.
-    awk '{ if ($13 != "u") { print } }' ovl.merged.m4 > tmp.ovl
-
-    # Tag the piles then sort them on pile boundary, by pile similarity
-    IPA_TIME log.ovl_asym_merge.nighthawk_membership.memtime \
-    nighthawk membership --log-level ${params_log_level} tmp.ovl > tmp2.ovl
-
-    # Cleanup 1
-    rm tmp.ovl
-
-    # Sort on membership tag
-    IPA_TIME log.ovl_asym_merge.nighthawk_membership_sort.memtime \
-    sort -k14 tmp2.ovl > ovl.nonlocal.m4
-
-    # Cleanup
-    rm tmp2.ovl
+    awk '{ if ($13 != "u") { print } }' ovl.merged.m4 > ovl.nonlocal.m4
 }
 
 function phasing_prepare {
@@ -266,8 +252,19 @@ function phasing_prepare {
 
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_phase_run} -eq 1 ]]; then
+        # Tag the piles then sort them on pile boundary, by pile similarity
+        IPA_TIME log.ovl_asym_merge.nighthawk_membership.memtime \
+        nighthawk membership --log-level ${params_log_level} ${input_m4} > tagged.ovl
+
+        # Sort on membership tag
+        IPA_TIME log.ovl_asym_merge.nighthawk_membership_sort.memtime \
+        sort -k14 tagged.ovl > tagged.sorted.ovl
+
+        # Cleanup
+        rm tagged.ovl
+
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-        nighthawk split --split-type ovlpiles --limit ${config_phasing_piles} chunk ${input_m4}
+        nighthawk split --split-type ovlpiles --limit ${config_phasing_piles} chunk tagged.sorted.ovl
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
         for ((block1=0;block1<num_blocks;block1++)); do

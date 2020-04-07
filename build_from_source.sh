@@ -54,7 +54,9 @@ export ENABLED_TESTS="true"
 export ENABLED_INTERNAL_TESTS="${bamboo_ENABLED_INTERNAL_TESTS}"
 export LDFLAGS="-static-libstdc++ -static-libgcc"
 
+git submodule update --init --recursive --remote
 source env.sh
+BUILD_DIR=build make all
 
 cd examples/ivan-200k-t1
 make

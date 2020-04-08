@@ -4,6 +4,6 @@
     "ipa2.coverage": 0,
     "ipa2.advanced_options": "",
     "ipa2.polish_run": 1,
-    "ipa2.phase_run": 0,
+    "ipa2.phase_run": 1,
     "ipa2.nproc": 8
 }

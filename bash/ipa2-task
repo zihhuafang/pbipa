@@ -262,11 +262,11 @@ function phasing_prepare {
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_phase_run} -eq 1 ]]; then
         # Tag the piles then sort them on pile boundary, by pile similarity
-        IPA_TIME log.ovl_asym_merge.nighthawk_membership.memtime \
+        IPA_TIME log.phasing_prepare.nighthawk_membership.memtime \
         nighthawk membership --log-level ${params_log_level} ${input_m4} > tagged.ovl
 
         # Sort on membership tag
-        IPA_TIME log.ovl_asym_merge.nighthawk_membership_sort.memtime \
+        IPA_TIME log.phasing_prepare.nighthawk_membership_sort.memtime \
         sort -k14 tagged.ovl > tagged.sorted.ovl
 
         # Cleanup
@@ -360,7 +360,7 @@ function ovl_filter {
 
     local opt_autocomp=""
     if [[ $config_autocomp_max_cov -eq 1 ]]; then
-        IPA_TIME log.ovl_asym_merge.falconc_ovl_cov_stats.memtime \
+        IPA_TIME log.ovl_filter.falconc_ovl_cov_stats.memtime \
         falconc ovl-cov-stats --in-fn=ovl.fofn > covstat.json
         local target_val=$(python3 -c "import json; d = json.loads(open('covstat.json').read()); print(int(d['median'] * 4))")
         opt_autocomp="--max-cov ${target_val} --max-diff ${target_val}"
@@ -373,11 +373,11 @@ function ovl_filter {
 
     # Filter. Create and use a new M4 index for speed, and multithread
     # over portions of that index.
-    IPA_TIME log.ovl_asym_merge.m4filt.memtime \
+    IPA_TIME log.ovl_filter.m4filt.memtime \
     falconc  m4filt --n-proc ${params_num_threads} --in ${local_m4} --out ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} ${opt_autocomp} --filter-log m4-readfilt.log
 
     # Containment removal.
-    IPA_TIME log.ovl_asym_merge.m4filtcontained.memtime \
+    IPA_TIME log.ovl_filter.m4filtcontained.memtime \
     falconc m4filt-contained --min-idt ${config_ovl_min_idt} --min-len ${config_ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
 }
 
@@ -426,7 +426,7 @@ function assemble {
     if [[ -s p_ctg.fasta ]]; then
         ls -larth p_ctg.fasta
         pwd
-        IPA_TIME log.assemble.samtools_p_ctg.memtime \
+        IPA_TIME log.assemble.samtools_faidx_p_ctg.memtime \
         samtools faidx p_ctg.fasta  # for oric later
         (grep ">" p_ctg.fasta | grep "ctg_circular" | cut -d ' ' -f 1 | tr -d ">" > circular_contigs.csv) || touch circular_contigs.csv
         ### The following line crashed in one example, so I removed it:
@@ -444,7 +444,7 @@ function assemble {
     touch a_ctg.fasta.fai
 
     if [[ -s a_ctg.fasta ]]; then
-        IPA_TIME log.assemble.samtools_a_ctg.memtime \
+        IPA_TIME log.assemble.samtools_faidx_a_ctg.memtime \
         samtools faidx a_ctg.fasta
     fi
 
@@ -718,10 +718,12 @@ function polish_merge {
     done < ${input_fofn}
 
     # Merge.
+    IPA_TIME log.polish_merge.cat.memtime \
     cat ${input_fofn} | xargs cat > ${output_fasta}
 
     touch ${output_fasta}.fai
     if [[ -s ${output_fasta} ]]; then
+        IPA_TIME log.polish_merge.samtools_faidx.memtime \
         samtools faidx ${output_fasta}
     fi
 }

@@ -409,17 +409,13 @@ function assemble {
 
     local opt_use_seq_ids=""
     if [[ ${config_use_seq_ids} -eq 1 ]]; then
-        opt_use_seq_ids="--alias ${input_seqdb}"
+        opt_use_seq_ids="--alias ${input_seqdb} --write-ids"
     fi
     preads4falcon_bn=reads_in_layout.fasta
     pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fasta ${preads4falcon_bn} ${reads_in_layout_fn} ${input_seqdb}
 
-    opt_use_seq_ids=""
-    if [[ ${config_use_seq_ids} -eq 1 ]]; then
-        opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
-    fi
     IPA_TIME log.assemble.graph_to_contig.memtime \
-    ipa2_graph_to_contig ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
+    ipa2_graph_to_contig --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 

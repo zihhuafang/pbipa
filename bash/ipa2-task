@@ -36,7 +36,27 @@ function generate_config_from_workflow {
     # Outputs:
     #   output_fn
 
-    echo "config_genome_size=${params_genome_size}" > input_opt.cfg
+    # Defaults
+    echo "config_autocomp_max_cov=1" > input_opt.cfg
+    echo "config_block_size=4096" >> input_opt.cfg
+    echo "config_coverage=0" >> input_opt.cfg
+    echo "config_existing_db_prefix=" >> input_opt.cfg
+    echo "config_genome_size=0" >> input_opt.cfg
+    echo "config_ovl_filter_opt=--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4" >> input_opt.cfg
+    echo "config_ovl_min_idt=98" >> input_opt.cfg
+    echo "config_ovl_min_len=1000" >> input_opt.cfg
+    echo "config_ovl_opt=" >> input_opt.cfg
+    echo "config_phase_run=1" >> input_opt.cfg
+    echo "config_phasing_opt=" >> input_opt.cfg
+    echo "config_phasing_piles=10000" >> input_opt.cfg
+    echo "config_polish_run=0" >> input_opt.cfg
+    echo "config_seeddb_opt=-k 30 -w 80 --space 1" >> input_opt.cfg
+    echo "config_seqdb_opt=--compression 1" >> input_opt.cfg
+    echo "config_use_seq_ids=1" >> input_opt.cfg
+    echo "" >> input_opt.cfg
+    
+    # User configured options.
+    echo "config_genome_size=${params_genome_size}" >> input_opt.cfg
     echo "config_coverage=${params_coverage}" >> input_opt.cfg
     echo "config_polish_run=${params_polish_run}" >> input_opt.cfg
     echo "config_phase_run=${params_phase_run}" >> input_opt.cfg

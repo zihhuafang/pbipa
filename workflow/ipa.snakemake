@@ -443,6 +443,8 @@ rule polish_merge:
         consensus_merged_fai = protected("polish_merge/assembly.merged.fasta.fai"),
     input:
         fns = gathered_polish,
+        p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
+        a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh_fn = rules.generate_config.output.config,
     params:
         num_threads = NPROC,
@@ -460,6 +462,8 @@ rule polish_merge:
         done >| ./merged.fofn
 
         input_fofn=./merged.fofn \
+        input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
+        input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
         output_fasta=$(basename {output.consensus_merged}) \
         params_num_threads="{params.num_threads}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \

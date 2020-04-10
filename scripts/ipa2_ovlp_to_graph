@@ -499,7 +499,23 @@ def find_bundle(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_
     bundle_edges = set()
     bundle_nodes = set()
 
-    local_graph = nx.ego_graph(ug, start_node, depth_cutoff, undirected=False)
+    # Almost the entire runtime of this script is spent in the nx.ego_graph function when
+    # the depth_cutoff is large.
+    # The local_graph is used in several places in the code belo. In a couple of places
+    # the out edges of each node are looked at. All out edges of ug are present in the
+    # local graph (given that the depth_cutoff is satisfied), so this condition is ok.
+    # There are two places where the in-edges are looked up. In one place, any in-edge
+    # which is not in the length_to_node dict is just skipped, so here we don't mind
+    # in edges that are not reachable from the start node.
+    # The other place where in-edges are looked up to see if a potential node for
+    # compound path extension has any edges which weren't looked up before.
+    # IMPORTANT: Using the ego_graph would actually allow nodes in the middle of a bubble
+    # to have edges with potentially distant regions of the genome, and we could form
+    # bubbles that are not clean. By removing the ego_graph we actually make it more
+    # stringent, and generate bubbles which shouldn't be able to connect to other places internally.
+    #
+    # local_graph = nx.ego_graph(ug, start_node, depth_cutoff, undirected=False)
+    local_graph = ug
     length_to_node = {start_node: 0}
     score_to_node = {start_node: 0}
 
@@ -542,6 +558,8 @@ def find_bundle(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_
                 v = end_node
                 max_score_edge = None
                 max_score = 0
+                # The in_edges here don't have to be in Ego graph, because
+                # they simply won't be in the length_to_node.
                 for uu, vv, kk in local_graph.in_edges(v, keys=True):
                     if uu not in length_to_node:
                         continue
@@ -596,6 +614,9 @@ def find_bundle(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_
                 LOG.debug(f"in_edges {uu} {vv} {kk}")
                 LOG.debug(f"{uu} in length_to_node {uu in length_to_node}")
 
+                # A predecessor of this node was not processed before!
+                # Node has incoming edges outside of bundle, or tips which are
+                # it's predecessors and have not been processed yet.
                 if uu not in length_to_node:
                     extend_tip = False
                     break
@@ -1630,6 +1651,7 @@ class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatte
 
 def main(argv=sys.argv):
     sys.stderr.write("IPA2 version of ovlp_to_graph.\n")
+    sys.stderr.flush()
 
     epilog = """
 Outputs:

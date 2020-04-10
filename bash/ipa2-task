@@ -756,16 +756,28 @@ function final_collect {
     #   input_p_ctg_fasta
     #   input_a_ctg_fasta
     # Outputs:
-    #   output_assembly_final_fasta
     #   output_p_ctg_fasta
     #   output_a_ctg_fasta
     # Params:
     #   params_log_level
     #   params_tmp_dir
+    #   params_polish_run
+    
+    if [[ ${params_polish_run} -ge 1 ]]; then
+        # grab the sequences that are primaries and alts
+        perl -lane 'print $F[0] if $F[0] !~ /\-/' ${input_assembly_merged_fasta}.fai > tmp.p.txt
+        perl -lane 'print $F[0] if $F[0] =~ /\-/' ${input_assembly_merged_fasta}.fai > tmp.a.txt
 
-    ln -sf ${input_assembly_merged_fasta} ${output_assembly_final_fasta}
-    ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}
-    ln -sf ${input_a_ctg_fasta} ${output_a_ctg_fasta}
+        # split the files back into p/a ctgs
+        pancake seqfetch --log-level INFO --out-fmt fasta ${output_p_ctg_fasta} tmp.p.txt ${input_assembly_merged_fasta}
+        pancake seqfetch --log-level INFO --out-fmt fasta ${output_a_ctg_fasta} tmp.a.txt ${input_assembly_merged_fasta}
+
+        #cleanup
+        rm -rf tmp*
+    else
+        ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}
+        ln -sf ${input_a_ctg_fasta} ${output_a_ctg_fasta}
+    fi
 }
 
 function help {

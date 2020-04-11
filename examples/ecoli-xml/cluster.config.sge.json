@@ -1,0 +1,12 @@
+{
+    "__default__" :
+    {
+    "S"   : "/bin/bash",
+    "N"   : "ipa",
+    "P"   : "-cwd",
+    "Q"   : "default",
+    "CPU" : "-pe smp 8",
+    "E"   : "qsub_log.stderr",
+    "O"   : "qsub_log.stdout"
+     },
+}

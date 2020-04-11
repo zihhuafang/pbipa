@@ -1,0 +1,11 @@
+{
+    "pb_assembly_hifi.eid_ccs": "/pbi/dept/secondary/siv/testdata/ipa2/ipa2-d02-ecoli/reads.consensusreadset.xml",
+    "pb_assembly_hifi.ipa2_genome_size": 5000000,
+    "pb_assembly_hifi.ipa2_downsampled_coverage": 30,
+    "pb_assembly_hifi.ipa2_advanced_options": "",
+    "pb_assembly_hifi.ipa2_run_polishing": 0,
+    "pb_assembly_hifi.ipa2_run_phasing": 0,
+    "pb_assembly_hifi.nproc": 8,
+    "pb_assembly_hifi.max_nchunks": 20,
+    "pb_assembly_hifi.tmp_dir": "/tmp"
+}

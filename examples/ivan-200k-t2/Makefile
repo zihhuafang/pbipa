@@ -8,7 +8,7 @@ snake:
 	CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.json --config MAKEDIR=.. -- finish
 
 wdl:
-	/usr/bin/time java -jar ${CROMWELL} run --inputs config.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee
+	/usr/bin/time java -jar ${CROMWELL} run --inputs config.wdl.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee
 	${MAKE} link
 	# -/usr/bin/time bash run.sh 2>&1 | tee log.wdl.tee
 

@@ -10,7 +10,8 @@ snake:
 	CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.json --config MAKEDIR=.. -- finish
 
 qsub:
-	CWD=${PWD}/RUN snakemake -p -d RUN -s ${WF_SNAKEMAKE} -j ${CLUSTER_JOBS} --cluster-config cluster.config.sge.json --cluster "qsub -S {cluster.S} -N {cluster.N} {cluster.P} -q {cluster.Q} {cluster.CPU} -e {cluster.E} -o {cluster.O} -V" --verbose -p --latency-wait 60 --configfile config.json --config MAKEDIR=.. -- finish
+	mkdir -p RUN/qsub_log
+	CWD=${PWD}/RUN snakemake -p -d RUN -s ${WF_SNAKEMAKE} -j ${CLUSTER_JOBS} --cluster-config cluster.config.sge.json --cluster "qsub -S {cluster.S} {cluster.P} -q {cluster.Q} {cluster.CPU} -e {cluster.E} -o {cluster.O} -V" --verbose -p --latency-wait 60 --configfile config.json --config MAKEDIR=.. -- finish
 
 wdl:
 	/usr/bin/time java -jar ${CROMWELL} run --inputs config.wdl.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee

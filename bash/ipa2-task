@@ -133,10 +133,20 @@ function build_db {
     # plain single sequence file.
     local input_reads_ext=${input_reads_fn##*.}
     if [[ "${input_reads_ext}" == "fofn" ]]; then
-        cp ${input_reads_fn} input.fofn
+        #cp ${input_reads_fn} input.fofn
+        rm -f input.fofn
+        local odirname=$PWD
+        local idirname=$(dirname ${input_reads_fn})
+        pushd ${idirname}
+        cat ${input_reads_fn} | while read line; do
+            echo "$(readlink -f ${line})" >> "${odirname}/input.fofn"
+        done
+        popd
     else
         echo "${input_reads_fn}" > input.fofn
     fi
+    cat input.fofn
+    echo "at $(readlink -f input.fofn)"
 
     local local_sample_bases=$((config_genome_size * config_coverage))
 
@@ -146,7 +156,7 @@ function build_db {
 
         # Convert the entire set of input sequences into the DB.
         IPA_TIME log.build_db.seqdb_full.memtime \
-        pancake seqdb --log-level ${params_log_level}  --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+        pancake seqdb --log-level ${params_log_level}  --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} input.fofn
 
         # Moving to ".full.seqdb" after the DB is generated ensures the <prefix>.seqdb[0-9]+.seq files exist.
         # Otherwise, these files would have ".full" at the end of their prefix, and the workflow

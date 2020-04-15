@@ -26,3 +26,4 @@
 	path = modules/pbpipeline-resources
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sl/pbpipeline-resources.git
 	branch = develop
+	ignore = all

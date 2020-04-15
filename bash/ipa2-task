@@ -690,9 +690,11 @@ function polish_run {
 
     cat ${shard_fn} | while read block_id; do
         echo "block_id=${block_id}"
-        # TODO: We can infer the ctg_id and reads_to_contig fns from the dir and block_id.
-        block_ctg_id_fn=$(echo "${params_ctg_id_fn}" | perl -pe "s/block_id\.(\d+)\.ctg_id/block_id.${block_id}.ctg_id/")
-        block_reads_to_contig_fn=$(echo "${params_reads_to_contig_fn}" | perl -pe "s/block_id\.(\d+)\.reads/block_id.${block_id}.reads/")
+        # We infer the existence of these 2 files:
+        block_ctg_id_fn="${prep_dir}/block_id.${block_id}.ctg_id"
+        block_reads_to_contig_fn="${prep_dir}/block_id.${block_id}.reads"
+        test -f "${block_ctg_id_fn}"
+        test -f "${block_reads_to_contig_fn}"
 
         # Extract the contig sequence.
         draft_fn="draft.fasta"

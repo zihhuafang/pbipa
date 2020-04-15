@@ -639,7 +639,7 @@ function polish_prepare {
 
         # Split contigs into different files.
         IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
-        awk -v output_blocks="${output_blocks}" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; fn_block_ids = "shard_id."count".blocks_ids"; print $2 > fn_ctg; print count > fn_block_ids; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
+        awk -v output_blocks="${output_blocks}" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; fn_block_ids = "shard_id."count".block_ids"; print $2 > fn_ctg; print count > fn_block_ids; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
     else
         touch sorted.read_to_contig.csv
         # Touch dummy files, just in case that we don't break the workflow
@@ -663,8 +663,8 @@ function polish_run {
     # Output:
     #   output_consensus_fn
     # Params:
-    #   params_reads_to_contig_fn
-    #   params_ctg_id_fn
+    #   params_reads_to_contig_fn # for pattern
+    #   params_ctg_id_fn # for pattern
     #   params_block_id
     #   params_num_threads
     #   params_config_sh_fn
@@ -673,12 +673,31 @@ function polish_run {
 
     helper_load_config ${params_config_sh_fn}
 
+    touch ${output_consensus_fn}
+
     # Only run if the polishing level is > 0.
-    if [[ ${config_polish_run} -ge 1 ]]; then
+    if [[ ${config_polish_run} -lt 1 ]]; then
+        # If we're not polishing, then this run is just a dummy run.
+        # Touch a dummy output so that the workflow doesn't fail.
+        #touch ${output_consensus_fn} # already did that
+        return
+    fi
+
+    # We assume this filename used an existing but irrelevant block_id.
+    # We use it only to learn the directory of polish_prepare.
+    prep_dir=$(dirname ${params_ctg_id_fn})
+    shard_fn="${prep_dir}/shard_id.${params_block_id}.block_ids"
+
+    cat ${shard_fn} | while read block_id; do
+        echo "block_id=${block_id}"
+        # TODO: We can infer the ctg_id and reads_to_contig fns from the dir and block_id.
+        block_ctg_id_fn=$(echo "${params_ctg_id_fn}" | perl -pe "s/block_id\.(\d+)\.ctg_id/block_id.${block_id}.ctg_id/")
+        block_reads_to_contig_fn=$(echo "${params_reads_to_contig_fn}" | perl -pe "s/block_id\.(\d+)\.reads/block_id.${block_id}.reads/")
+
         # Extract the contig sequence.
         draft_fn="draft.fasta"
         IPA_TIME log.polish_run.pancake_seqfetch_contigs.memtime \
-        pancake seqfetch --log-level ${params_log_level} --out-fmt fasta ${draft_fn} ${params_ctg_id_fn} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+        pancake seqfetch --log-level ${params_log_level} --out-fmt fasta ${draft_fn} ${block_ctg_id_fn} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
         # Extract the read sequences as FASTQ.
         reads_fn="reads.fastq"
@@ -687,7 +706,7 @@ function polish_run {
             opt_use_seq_ids="--alias ${input_seqdb}"
         fi
         IPA_TIME log.polish_run.pancake_seqfetch_reads.memtime \
-        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${params_reads_to_contig_fn} ${input_seqdb}
+        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${block_reads_to_contig_fn} ${input_seqdb}
 
         # Map.
         IPA_TIME log.polish_run.pbmm2.memtime \
@@ -701,19 +720,15 @@ function polish_run {
         local is_good=$(cat filtered_aln_count.txt)
         if [ ${is_good} -eq "0" ]; then
             # There are no records in the SAM file. Create an empty output file.
-            touch ${output_consensus_fn}
+            echo "What is the do-nothing command in bash?"
         else
             IPA_TIME log.polish_run.racon.memtime \
-            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} > ${output_consensus_fn}
+            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} >> ${output_consensus_fn}
         fi
 
         # Cleanup
         rm -f *.bam *.sam *.fastq
-    else
-        # If we're not polishing, then this run is just a dummy run.
-        # Touch a dummy output so that the workflow doesn't fail.
-        touch ${output_consensus_fn}
-    fi
+    done
 }
 
 function polish_merge {

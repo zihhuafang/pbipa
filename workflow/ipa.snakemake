@@ -395,13 +395,13 @@ checkpoint polish_prepare:
     """
 def gathered_polish(wildcards):
     checkpoint_output = checkpoints.polish_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
-    block_ids_polish = glob_wildcards(os.path.join(checkpoint_output, "block_id.{block_id_polish}.reads")).block_id_polish
-    return expand("polish_run/{block_id_polish}/consensus.fasta",
-            block_id_polish=block_ids_polish)
+    shard_ids_polish = glob_wildcards(os.path.join(checkpoint_output, "shard_id.{shard_id_polish}.block_ids")).shard_id_polish
+    return expand("polish_run/{shard_id_polish}/consensus.fasta",
+            shard_id_polish=shard_ids_polish)
 
 rule polish_run:
     output:
-        consensus = temp("polish_run/{block_id_polish}/consensus.fasta"),
+        consensus = temp("polish_run/{shard_id_polish}/consensus.fasta"),
     input:
         input_fofn = rules.build_db.output.input_fofn,
         seqdb = rules.build_db.output.seqdb,
@@ -411,12 +411,12 @@ rule polish_run:
         config_sh_fn = rules.generate_config.output.config,
     params:
         num_threads = NPROC,
-        reads_to_contig_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.reads"),
-        ctg_id_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{block_id_polish}.ctg_id"),
+        reads_to_contig_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{shard_id_polish}.reads"),
+        ctg_id_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{shard_id_polish}.ctg_id"),
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
-        echo "block_id={wildcards.block_id_polish}"
+        echo "block_id={wildcards.shard_id_polish}"
         wd=$(dirname {output.consensus})
         mkdir -p $wd
         cd $wd
@@ -429,7 +429,7 @@ rule polish_run:
         output_consensus_fn=$(basename {output.consensus}) \
         params_reads_to_contig_fn="$rel/{params.reads_to_contig_fn}" \
         params_ctg_id_fn="$rel/{params.ctg_id_fn}" \
-        params_block_id={wildcards.block_id_polish} \
+        params_block_id={wildcards.shard_id_polish} \
         params_num_threads={params.num_threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \

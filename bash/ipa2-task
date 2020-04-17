@@ -626,7 +626,8 @@ function polish_prepare {
     #   params_tmp_dir
     # Output:
     #   Various wildcard files.
-    #   ${output_shard_ids} (same info in 1 file)
+    #   output_shard_ids (one per line)
+    #   output_pwd (really for Cromwell)
     touch ${output_shard_ids}
 
     helper_load_config ${params_config_sh_fn}
@@ -651,6 +652,8 @@ function polish_prepare {
         echo "0" >| shard.0.block_ids
         # Snakemake will have 1 shard (in wildcard), but Cromwell will have 0 shards (in output_shard_ids).
     fi
+
+    pwd >> ${output_pwd}
 }
 
 function polish_run {

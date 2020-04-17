@@ -386,6 +386,7 @@ checkpoint polish_prepare:
         input_p_ctg_fasta_fai="$rel/{input.p_ctg_fasta_fai}" \
         input_a_ctg_fasta_fai="$rel/{input.a_ctg_fasta_fai}" \
         output_shard_ids=./all_shard_ids \
+        output_pwd=./pwd.txt \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_max_nchunks="{params.max_nchunks}" \
         params_log_level="{params.log_level}" \

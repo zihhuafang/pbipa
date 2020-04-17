@@ -363,7 +363,7 @@ rule assemble:
 #################
 checkpoint polish_prepare:
     output:
-        blockdir = directory('polish_prepare/block_ids'),
+        sharddir = directory('polish_prepare/shards'),
     input:
         read_to_contig = rules.assemble.output.read_to_contig,
         config_sh_fn = rules.generate_config.output.config,
@@ -377,16 +377,16 @@ checkpoint polish_prepare:
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
-        rm -f {output.blockdir}
-        mkdir -p {output.blockdir}
-        cd {output.blockdir}
+        rm -f {output.sharddir}
+        mkdir -p {output.sharddir}
+        cd {output.sharddir}
         rel=../..
 
         input_read_to_contig="$rel/{input.read_to_contig}" \
         input_p_ctg_fasta_fai="$rel/{input.p_ctg_fasta_fai}" \
         input_a_ctg_fasta_fai="$rel/{input.a_ctg_fasta_fai}" \
-        output_blocks=./blocks \
-        output_blockdir_fn="blockdir_fn.txt" \
+        output_shard_ids=./all_shard_ids \
+        output_pwd=./pwd.txt \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_max_nchunks="{params.max_nchunks}" \
         params_log_level="{params.log_level}" \
@@ -394,8 +394,8 @@ checkpoint polish_prepare:
             time ipa2-task polish_prepare
     """
 def gathered_polish(wildcards):
-    checkpoint_output = checkpoints.polish_prepare.get(**wildcards).output.blockdir  # raises until checkpoint is done
-    shard_ids_polish = glob_wildcards(os.path.join(checkpoint_output, "shard_id.{shard_id_polish}.block_ids")).shard_id_polish
+    checkpoint_output = checkpoints.polish_prepare.get(**wildcards).output.sharddir  # raises until checkpoint is done
+    shard_ids_polish = glob_wildcards(os.path.join(checkpoint_output, "shard.{shard_id_polish}.block_ids")).shard_id_polish
     return expand("polish_run/{shard_id_polish}/consensus.fasta",
             shard_id_polish=shard_ids_polish)
 
@@ -408,15 +408,14 @@ rule polish_run:
         seqdb_seqs = rules.build_db.output.seqdb_seqs,
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
-        config_sh_fn = rules.generate_config.output.config,
+        config_sh = rules.generate_config.output.config, # could be a param if we want to regen
     params:
         num_threads = NPROC,
-        reads_to_contig_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{shard_id_polish}.reads"),
-        ctg_id_fn = os.path.join(rules.polish_prepare.output.blockdir, "block_id.{shard_id_polish}.ctg_id"),
+        polish_prepare_dn = rules.polish_prepare.output.sharddir,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
-        echo "block_id={wildcards.shard_id_polish}"
+        echo "shard_id={wildcards.shard_id_polish}"
         wd=$(dirname {output.consensus})
         mkdir -p $wd
         cd $wd
@@ -426,12 +425,11 @@ rule polish_run:
         input_seqdb="$rel/{input.seqdb}" \
         input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
         input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
-        output_consensus_fn=$(basename {output.consensus}) \
-        params_reads_to_contig_fn="$rel/{params.reads_to_contig_fn}" \
-        params_ctg_id_fn="$rel/{params.ctg_id_fn}" \
-        params_block_id={wildcards.shard_id_polish} \
+        output_consensus=$(basename {output.consensus}) \
+        params_polish_prepare_dn="$rel/{params.polish_prepare_dn}" \
+        params_shard_id={wildcards.shard_id_polish} \
         params_num_threads={params.num_threads} \
-        params_config_sh_fn="$rel/{input.config_sh_fn}" \
+        params_config_sh_fn="$rel/{input.config_sh}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
             time ipa2-task polish_run

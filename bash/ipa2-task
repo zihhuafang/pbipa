@@ -625,11 +625,12 @@ function polish_prepare {
     #   params_log_level
     #   params_tmp_dir
     # Output:
-    #   *.txt in cwd
-    #   ${output_blocks} (same info in 1 file)
-    helper_load_config ${params_config_sh_fn}
+    #   Various wildcard files.
+    #   output_shard_ids (one per line)
+    #   output_pwd (really for Cromwell)
+    touch ${output_shard_ids}
 
-    pwd > ${output_blockdir_fn}
+    helper_load_config ${params_config_sh_fn}
 
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_polish_run} -ge 1 ]]; then
@@ -639,22 +640,20 @@ function polish_prepare {
 
         # Split contigs into different files.
         IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
-        awk -v output_blocks="${output_blocks}" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
+        awk -v output_blocks="all_block_ids" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block."count".reads"; fn_ctg =  "block."count".ctg_id"; print $2 > fn_ctg; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
 
-        mv ${output_blocks} block_ids
-        falconc ipa2-polish-prepare --max ${params_max_nchunks} --out ${output_blocks}
+        falconc ipa2-polish-prepare --max ${params_max_nchunks} --shard-prefix 'shard' --block-prefix 'block' --out ${output_shard_ids}
     else
         touch sorted.read_to_contig.csv
         # Touch dummy files, just in case that we don't break the workflow
         # in case there aren't any files generated for the wildcard expansion.
         touch block_id.0.reads
         touch block_id.0.ctg_id
-        echo "0" >| shard_id.0.block_ids
+        echo "0" >| shard.0.block_ids
+        # Snakemake will have 1 shard (in wildcard), but Cromwell will have 0 shards (in output_shard_ids).
     fi
 
-    if [[ ! -s ${output_blocks} ]]; then
-        touch ${output_blocks}
-    fi
+    pwd >> ${output_pwd}
 }
 
 function polish_run {
@@ -664,11 +663,10 @@ function polish_run {
     #   input_p_ctg_fasta
     #   input_a_ctg_fasta
     # Output:
-    #   output_consensus_fn
+    #   output_consensus
     # Params:
-    #   params_reads_to_contig_fn # for pattern
-    #   params_ctg_id_fn # for pattern
-    #   params_block_id
+    #   params_polish_prepare_dn
+    #   params_shard_id
     #   params_num_threads
     #   params_config_sh_fn
     #   params_log_level
@@ -676,26 +674,24 @@ function polish_run {
 
     helper_load_config ${params_config_sh_fn}
 
-    touch ${output_consensus_fn}
+    touch ${output_consensus}
 
     # Only run if the polishing level is > 0.
     if [[ ${config_polish_run} -lt 1 ]]; then
         # If we're not polishing, then this run is just a dummy run.
         # Touch a dummy output so that the workflow doesn't fail.
-        #touch ${output_consensus_fn} # already did that
+        #touch ${output_consensus} # already did that
         return
     fi
 
-    # We assume this filename used an existing but irrelevant block_id.
-    # We use it only to learn the directory of polish_prepare.
-    prep_dir=$(dirname ${params_ctg_id_fn})
-    shard_fn="${prep_dir}/shard_id.${params_block_id}.block_ids"
+    prep_dir=${params_polish_prepare_dn}
+    shard_fn="${prep_dir}/shard.${params_shard_id}.block_ids"
 
     cat ${shard_fn} | while read block_id; do
         echo "block_id=${block_id}"
         # We infer the existence of these 2 files:
-        block_ctg_id_fn="${prep_dir}/block_id.${block_id}.ctg_id"
-        block_reads_to_contig_fn="${prep_dir}/block_id.${block_id}.reads"
+        block_ctg_id_fn="${prep_dir}/block.${block_id}.ctg_id"
+        block_reads_to_contig_fn="${prep_dir}/block.${block_id}.reads"
         test -f "${block_ctg_id_fn}"
         test -f "${block_reads_to_contig_fn}"
 
@@ -727,11 +723,11 @@ function polish_run {
             : # There are no records in the SAM file. Output for this block is empty.
         else
             IPA_TIME log.polish_run.racon.memtime \
-            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} >> ${output_consensus_fn}
+            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} >> ${output_consensus}
         fi
 
-        # Cleanup
-        rm -f *.bam *.sam *.fastq
+        # Cleanup. (Most of these are clobbered each iteration anyway.)
+        rm -f *.bam *.sam *.fastq ${draft_fn} filtered_aln_count.txt
     done
 }
 

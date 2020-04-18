@@ -1449,6 +1449,22 @@ def identify_edges_to_remove(compound_paths, ug2):
                     edges_to_remove.add((ss, tt, vv))
     return edges_to_remove
 
+def generic_nx_to_gfa(fp_out, graph, use_keys=False, node_len_dict=None):
+    line = 'H\tVN:Z:1.0'
+    fp_out.write(line + '\n')
+
+    if node_len_dict != None:
+        for v in graph.nodes():
+            line = 'S\t%s\t%s\tLN:i:%d' % (v, '*', node_len_dict[v])
+            fp_out.write(line + '\n')
+    else:
+        for v in graph.nodes():
+            line = 'S\t%s\t%s\tLN:i:%d' % (v, '*', 1000)
+            fp_out.write(line + '\n')
+    for v, w in graph.edges():
+        line = 'L\t%s\t+\t%s\t+\t0M' % (v, w)
+        fp_out.write(line + '\n')
+
 def identify_short_edges_to_remove(ug2, u_edge_data):
     edges_to_remove = set()
     for s, t, v in ug2.edges(keys=True):
@@ -1619,6 +1635,9 @@ def ovlp_to_graph(args):
     print_edge_data(u_edge_data)
     time_identify_spurs_2 += [time.time()]
     log_time('identify_spurs-2', time_short_edges_to_remove)
+
+    with open('ug.final.gfa', 'w') as fp_out:
+        generic_nx_to_gfa(fp_out, ug, False, None)
 
     # contig construction from utgs
     time_construct_c_path_from_utgs = [time.time()]

@@ -1264,12 +1264,14 @@ def remove_dup_simple_path(ug, u_edge_data):
     return ug2
 
 
-def construct_c_path_from_utgs(ug, u_edge_data, sg):
+def construct_c_path_from_utgs(ug, u_edge_data, best_in_dict, use_bestin_heuristic):
     # Side-effects: None, I think.
 
     s_nodes = set()
     simple_nodes = set()
     simple_out = set()
+    sources = set()
+    sinks = set()
 
     all_nodes = ug.nodes()
     for n in all_nodes:
@@ -1282,6 +1284,10 @@ def construct_c_path_from_utgs(ug, u_edge_data, sg):
                 s_nodes.add(n)
         if out_degree == 1:
             simple_out.add(n)
+        if in_degree == 0 and out_degree > 0:
+            sources.add(n)
+        if in_degree > 0 and out_degree == 0:
+            sinks.add(n)
 
     c_path = []
 
@@ -1325,21 +1331,24 @@ def construct_c_path_from_utgs(ug, u_edge_data, sg):
                 likelihood to be correct.)
                 """
                 if len(ug.in_edges(t, keys=True)) > 1:
-                    best_in_node = sg.nodes[t]["best_in"]
+                    if use_bestin_heuristic:
+                        best_in_node = best_in_dict[t]
 
-                    if type_ == "simple" and best_in_node != path_or_edges[-2]:
-                        break
-                    if type_ == "compound":
-                        t_in_nodes = set()
-                        for ss, vv, tt in path_or_edges:
-                            if tt != t:
-                                continue
-                            length, score, path_or_edges, type_ = u_edge_data[(
-                                ss, vv, tt)]
-                            if path_or_edges[-1] == tt:
-                                t_in_nodes.add(path_or_edges[-2])
-                        if best_in_node not in t_in_nodes:
+                        if type_ == "simple" and best_in_node != path_or_edges[-2]:
                             break
+                        if type_ == "compound":
+                            t_in_nodes = set()
+                            for ss, vv, tt in path_or_edges:
+                                if tt != t:
+                                    continue
+                                length, score, path_or_edges, type_ = u_edge_data[(
+                                    ss, vv, tt)]
+                                if path_or_edges[-1] == tt:
+                                    t_in_nodes.add(path_or_edges[-2])
+                            if best_in_node not in t_in_nodes:
+                                break
+                    else:
+                        break
                 # ----------------
 
                 path.append((t0, t, v))
@@ -1356,9 +1365,10 @@ def construct_c_path_from_utgs(ug, u_edge_data, sg):
             path_score += score
             path_nodes.add(t)
             path_end = t
+            is_spur = True if path_start in sources else False
 
             c_path.append((path_start, path_key, path_end,
-                           path_length, path_score, path, len(path)))
+                           path_length, path_score, path, len(path), is_spur))
             LOG.debug(f"c_path {path_start} {path_key} {path_end} {path_length} {path_score} {len(path)}")
             for e in path:
                 if e in free_edges:
@@ -1374,7 +1384,7 @@ def extract_contigs(ug, u_edge_data, c_path, circular_path, ctg_prefix):
 
     ctg_id = 0
 
-    for path_start, path_key, path_end, p_len, p_score, path, n_edges in c_path:
+    for path_start, path_key, path_end, p_len, p_score, path, n_edges, is_spur in c_path:
         length = 0
         score = 0
         length_r = 0
@@ -1490,8 +1500,6 @@ def unitig_nx_to_gfa(fp_out, ug, u_edge_data):
         node_name = '~'.join([s, v, t])
 
         for w in inlets[t]:
-            print('node_name = {}\n'.format(node_name))
-            print('w = {}\n'.format(w))
             edges[(node_name, w)] = 'L\t%s\t+\t%s\t+\t0M' % (node_name, w)
 
         for w in outlets[s]:
@@ -1679,13 +1687,49 @@ def ovlp_to_graph(args):
     time_write_ug += [time.time()]
     log_time('write-ug', time_write_ug)
 
-    # contig construction from utgs
-    time_construct_c_path_from_utgs = [time.time()]
-    c_path = construct_c_path_from_utgs(ug, u_edge_data, nxsg)
-    # Sorting contig paths by length.
-    c_path.sort(key=lambda x: -x[3])
-    time_construct_c_path_from_utgs += [time.time()]
-    log_time('construct_c_path_from_utgs', time_construct_c_path_from_utgs)
+    if args.haplospur:
+        # Create a dict for every non-trivial unitig node, where the key is the
+        # node and the value is the best input node. This is stored in the
+        # string graph in the legacy code.
+        # This is used to resolve ambiguities during contig extraction by
+        # prefering the best scoring path.
+        best_in_dict = {}
+
+        # Contig construction with the spur selection heuristic.
+        time_construct_simple_ctg_paths = [time.time()]
+        simple_ctg_paths = construct_c_path_from_utgs(ug, u_edge_data, None, False)
+
+        best_in_dict = find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, nxsg)
+
+        for key, val in best_in_dict.items():
+            sys.stderr.write('v = {} -> best_in = {}\n'.format(key, val))
+
+        # Find the final contig paths using the best_in dict filter.
+        # This should prevent small spurs (unmerged haplotig bubbles) in the middle
+        # of long contigs to break those contigs.
+        c_path = construct_c_path_from_utgs(ug, u_edge_data, best_in_dict, True)
+        # Sorting contig paths by length.
+        c_path.sort(key=lambda x: -x[3])
+        time_construct_simple_ctg_paths += [time.time()]
+        log_time('construct_c_path_from_utgs', time_construct_simple_ctg_paths)
+    else:
+        # Create a dict for every non-trivial unitig node, where the key is the
+        # node and the value is the best input node. This is stored in the
+        # string graph in the legacy code.
+        # This is used to resolve ambiguities during contig extraction by
+        # prefering the best scoring path.
+        best_in_dict = {}
+        for v in ug.nodes():
+            if len(ug.in_edges(v, keys = True)) > 1:
+                best_in_dict[v] = nxsg.nodes[v]["best_in"]
+
+        # contig construction from utgs
+        time_construct_c_path_from_utgs = [time.time()]
+        c_path = construct_c_path_from_utgs(ug, u_edge_data, best_in_dict, True)
+        # Sorting contig paths by length.
+        c_path.sort(key=lambda x: -x[3])
+        time_construct_c_path_from_utgs += [time.time()]
+        log_time('construct_c_path_from_utgs', time_construct_c_path_from_utgs)
 
     # Construct the contigs (based on unitigs).
     time_extract_contigs = [time.time()]
@@ -1704,6 +1748,101 @@ def ovlp_to_graph(args):
 
     time_total += [time.time()]
     log_time('TOTAL', time_total)
+
+def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
+    # c_path.append((path_start, path_key, path_end,
+    #             path_length, path_score, path, len(path)))
+
+    # Create a graph for the purposes of this function only.
+    cg = nx.MultiDiGraph()
+    for vals in simple_ctg_paths:
+        s, v, t, p_len, p_score, path, n_edges, is_spur = vals
+        # is_spur = False
+        cg.add_edge(s, t, key=v, type_="simple_ctg",
+                    via=v, length=p_len, score=p_score, is_spur=is_spur, data=vals)
+
+    # Collect all non-trivial nodes which will require the best in-edge in the dict.
+    nontrivial_nodes = set()
+    for v in cg.nodes():
+        if len(cg.in_edges(v, keys=True)) <= 1:
+            continue
+        nontrivial_nodes.add(v)
+
+    num_iterations = 0
+    converged = False
+    while num_iterations < 100 and converged == False:
+        edges_to_remove = []
+        converged = True
+        for v in cg.nodes():
+            # Only focus on non-trivial nodes.
+            if len(cg.in_edges(v, keys=True)) <= 1:
+                continue
+            # Sort by length in descending order.
+            # in_edges = sorted(cg.in_edges(v, keys=True), key = lambda x: x.attr["length"], reverse = True)
+            in_edges = sorted(cg.in_edges(v, keys=True), key = lambda x: cg.get_edge_data(x[0], x[1], key=x[2])['length'], reverse = True)
+            # Longest contig entering this node.
+            # max_len = in_edges[0].attr["length"]
+            ss, tt, vv = in_edges[0]
+            max_len = cg.get_edge_data(ss, tt, key=vv)['length']
+            # Find other spur contigs which are shorter than the max one and mark
+            # them for removal.
+            for e in in_edges:
+                ss, tt, vv = e
+                e_data = cg.get_edge_data(ss, tt, key=vv)
+                if e_data['is_spur'] and e_data['length'] < (max_len / 2.0):
+                    edges_to_remove.append(e)
+        # Remove the edges from the graph.
+        for ss, tt, vv in edges_to_remove:
+            cg.remove_edge(ss, tt, key=vv)
+        if len(edges_to_remove) > 0:
+            converged = False
+        sys.stderr.write('num_iterations = {}, len(edges_to_remove) = {}, converged = {}\n'.format(num_iterations, len(edges_to_remove), converged))
+        num_iterations += 1
+
+    # Mark the best in-edge for each of the remaining input edges of
+    # the nodes of interest.
+    best_in = {}
+    for node in nontrivial_nodes:
+        in_edges = cg.in_edges(node, keys=True)
+
+        # Find all predecessor nodes to 'node' in the SG.
+        # This requires going from contig data to the last unitig,
+        # then checking if the last unitig is a simple or a compound unitig.
+        # If it's a simple one, then the next to last node in the path is what
+        # we're looking for.
+        # Otherwise, the compound unitig is composed of a list of simple unitigs,
+        # so we need to scan all of those.
+        predecessor_nodes_in_sg = set()
+        for e in in_edges:
+            ss, tt, vv = e
+            e_data = cg.get_edge_data(ss, tt, key=vv)
+            s, v, t, p_len, p_score, path, n_edges, is_spur = e_data['data']
+            last_utg = path[-1]
+            utg_s, utg_t, utg_v = last_utg
+            utg_length, utg_score, utg_path_or_edges, utg_type_ = u_edge_data[(utg_s, utg_t, utg_v)]
+
+            # Find all predecessors.
+            if utg_type_ == "simple":
+                predecessor_nodes_in_sg.add(utg_path_or_edges[-2])
+            elif type_ == "compound":
+                t_in_nodes = set()
+                for ss, vv, tt in utg_path_or_edges:
+                    if tt != t:
+                        continue
+                    length, score, path_or_edges, type_ = u_edge_data[(
+                        ss, vv, tt)]
+                    if path_or_edges[-1] == tt:
+                        predecessor_nodes_in_sg.add(path_or_edges[-2])
+
+        best_score = None
+        for pred_node in predecessor_nodes_in_sg:
+            score = sg.get_edge_data(pred_node, node)['score']
+            # score = sg.edge(pred_node, node)["score"]
+            if best_score == None or score > best_score:
+                best_score = score
+                best_in[node] = pred_node
+
+    return best_in
 
 class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
@@ -1755,6 +1894,9 @@ Outputs:
     parser.add_argument(
         '--ctg-prefix', default='',
         help='Prefix for contig names.')
+    parser.add_argument(
+        '--haplospur', action="store_true", default=False,
+        help='Apply the haplospur contig extraction algorithm.')
 
 
     parser.add_argument(

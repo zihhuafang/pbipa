@@ -1687,6 +1687,13 @@ def ovlp_to_graph(args):
     time_write_ug += [time.time()]
     log_time('write-ug', time_write_ug)
 
+    best_in_dict = {}
+    for v in ug.nodes():
+        if len(ug.in_edges(v, keys = True)) > 1:
+            best_in_dict[v] = nxsg.nodes[v]["best_in"]
+    for key in sorted(best_in_dict.keys()):
+        sys.stderr.write('(haplospur) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+
     if args.haplospur:
         # Create a dict for every non-trivial unitig node, where the key is the
         # node and the value is the best input node. This is stored in the
@@ -1701,8 +1708,8 @@ def ovlp_to_graph(args):
 
         best_in_dict = find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, nxsg)
 
-        for key, val in best_in_dict.items():
-            sys.stderr.write('v = {} -> best_in = {}\n'.format(key, val))
+        for key in sorted(best_in_dict.keys()):
+            sys.stderr.write('(haplospur) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
 
         # Find the final contig paths using the best_in dict filter.
         # This should prevent small spurs (unmerged haplotig bubbles) in the middle
@@ -1764,16 +1771,16 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
     # Collect all non-trivial nodes which will require the best in-edge in the dict.
     nontrivial_nodes = set()
     for v in cg.nodes():
-        if len(cg.in_edges(v, keys=True)) <= 1:
-            continue
-        nontrivial_nodes.add(v)
+        if len(cg.in_edges(v, keys=True)) > 1 and len(cg.out_edges(v, keys=True)) == 1:
+            nontrivial_nodes.add(v)
 
     num_iterations = 0
     converged = False
     while num_iterations < 100 and converged == False:
-        edges_to_remove = []
         converged = True
-        for v in cg.nodes():
+        num_removed_edges = 0
+        for v in nontrivial_nodes:
+            edges_to_remove = []
             # Only focus on non-trivial nodes.
             if len(cg.in_edges(v, keys=True)) <= 1:
                 continue
@@ -1783,7 +1790,8 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
             # Longest contig entering this node.
             # max_len = in_edges[0].attr["length"]
             ss, tt, vv = in_edges[0]
-            max_len = cg.get_edge_data(ss, tt, key=vv)['length']
+            max_e_data = cg.get_edge_data(ss, tt, key=vv)
+            max_len = max_e_data['length']
             # Find other spur contigs which are shorter than the max one and mark
             # them for removal.
             for e in in_edges:
@@ -1791,12 +1799,24 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
                 e_data = cg.get_edge_data(ss, tt, key=vv)
                 if e_data['is_spur'] and e_data['length'] < (max_len / 2.0):
                     edges_to_remove.append(e)
-        # Remove the edges from the graph.
-        for ss, tt, vv in edges_to_remove:
-            cg.remove_edge(ss, tt, key=vv)
-        if len(edges_to_remove) > 0:
-            converged = False
-        sys.stderr.write('num_iterations = {}, len(edges_to_remove) = {}, converged = {}\n'.format(num_iterations, len(edges_to_remove), converged))
+                    converged = False
+            # Remove the edges from the graph.
+            for ss, tt, vv in edges_to_remove:
+                cg.remove_edge(ss, tt, key=vv)
+                num_removed_edges += 1
+
+            # If the current positon converged, increase the out edge so that
+            # the next iteration we can improve the next path.
+            # Ideally, we should merge the two neighboring contigs, but this is
+            # a hack which should hopefully work.
+            if cg.in_edges(v, keys=True) == 1:
+                ss, tt, vv = cg.out_edges(v, keys=True)[0]
+                curr_e_data = cg.get_edge_data(ss, tt, key=vv)
+                curr_e_data['length'] += max_len
+
+        # if len(edges_to_remove) > 0:
+        #     converged = False
+        sys.stderr.write('num_iterations = {}, num_removed_edges = {}, converged = {}\n'.format(num_iterations, num_removed_edges, converged))
         num_iterations += 1
 
     # Mark the best in-edge for each of the remaining input edges of

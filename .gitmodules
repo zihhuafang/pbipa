@@ -6,10 +6,6 @@
 	path = modules/racon
 	url = https://github.com/isovic/racon
 	branch = meson2
-[submodule "modules/pbmm2"]
-	path = modules/pbmm2
-	url = https://github.com/PacificBiosciences/pbmm2.git
-	branch = develop
 [submodule "modules/pancake"]
 	path = modules/pancake
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pancake.git
@@ -27,3 +23,7 @@
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sl/pbpipeline-resources.git
 	branch = develop
 	ignore = all
+[submodule "modules/pbmm2"]
+	path = modules/pbmm2
+	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pbmm2.git
+	branch = develop

@@ -1689,10 +1689,10 @@ def ovlp_to_graph(args):
 
     best_in_dict = {}
     for v in ug.nodes():
-        if len(ug.in_edges(v, keys = True)) > 1:
-            best_in_dict[v] = nxsg.nodes[v]["best_in"]
-    for key in sorted(best_in_dict.keys()):
-        sys.stderr.write('(sg) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+        # if len(ug.in_edges(v, keys = True)) > 1:
+        best_in_dict[v] = nxsg.nodes[v]["best_in"]
+    # for key in sorted(best_in_dict.keys()):
+    #     sys.stderr.write('(sg) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
 
     if args.haplospur:
         # Create a dict for every non-trivial unitig node, where the key is the
@@ -1700,7 +1700,7 @@ def ovlp_to_graph(args):
         # string graph in the legacy code.
         # This is used to resolve ambiguities during contig extraction by
         # prefering the best scoring path.
-        best_in_dict = {}
+        # best_in_dict = {}
 
         # Contig construction with the spur selection heuristic.
         time_construct_simple_ctg_paths = [time.time()]
@@ -1725,10 +1725,10 @@ def ovlp_to_graph(args):
         # string graph in the legacy code.
         # This is used to resolve ambiguities during contig extraction by
         # prefering the best scoring path.
-        best_in_dict = {}
-        for v in ug.nodes():
-            if len(ug.in_edges(v, keys = True)) > 1:
-                best_in_dict[v] = nxsg.nodes[v]["best_in"]
+        # best_in_dict = {}
+        # for v in ug.nodes():
+        #     if len(ug.in_edges(v, keys = True)) > 1:
+        #         best_in_dict[v] = nxsg.nodes[v]["best_in"]
 
         # contig construction from utgs
         time_construct_c_path_from_utgs = [time.time()]

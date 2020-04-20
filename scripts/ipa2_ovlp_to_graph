@@ -1688,9 +1688,12 @@ def ovlp_to_graph(args):
     log_time('write-ug', time_write_ug)
 
     best_in_dict = {}
-    for v in ug.nodes():
+    for v in nxsg.nodes():
         # if len(ug.in_edges(v, keys = True)) > 1:
-        best_in_dict[v] = nxsg.nodes[v]["best_in"]
+        sys.stderr.write('(test) v = {}\n'.format(v))
+        v_data = best_in_dict[v] = nxsg.nodes[v]
+        if 'best_in' in v_data:
+            best_in_dict[v] = v_data["best_in"]
     # for key in sorted(best_in_dict.keys()):
     #     sys.stderr.write('(sg) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
 
@@ -1706,10 +1709,10 @@ def ovlp_to_graph(args):
         time_construct_simple_ctg_paths = [time.time()]
         simple_ctg_paths = construct_c_path_from_utgs(ug, u_edge_data, None, False)
 
-        best_in_dict = find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, nxsg)
+        find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, nxsg, best_in_dict)
 
-        for key in sorted(best_in_dict.keys()):
-            sys.stderr.write('(haplospur) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+        # for key in sorted(best_in_dict.keys()):
+        #     sys.stderr.write('(haplospur) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
 
         # Find the final contig paths using the best_in dict filter.
         # This should prevent small spurs (unmerged haplotig bubbles) in the middle
@@ -1756,7 +1759,7 @@ def ovlp_to_graph(args):
     time_total += [time.time()]
     log_time('TOTAL', time_total)
 
-def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
+def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, best_in_dict):
     def print_cg_edge_data(ss, tt, vv):
         e_data = cg.get_edge_data(ss, tt, key=vv)
         ss, vv, tt, p_len, p_score, path, n_edges, is_spur = e_data['data']
@@ -1802,6 +1805,9 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
     for v in cg.nodes():
         if len(cg.in_edges(v, keys=True)) > 1 and len(cg.out_edges(v, keys=True)) == 1:
             nontrivial_nodes.add(v)
+
+    for key in sorted(nontrivial_nodes):
+        sys.stderr.write('(before) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
 
     num_iterations = 0
     converged = False
@@ -1882,7 +1888,8 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
 
     # Mark the best in-edge for each of the remaining input edges of
     # the nodes of interest.
-    best_in = {}
+    # best_in_dict = {}
+
     for node in nontrivial_nodes:
         in_edges = cg.in_edges(node, keys=True)
 
@@ -1924,9 +1931,12 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg):
             # score = sg.edge(pred_node, node)["score"]
             if best_score == None or score > best_score:
                 best_score = score
-                best_in[node] = pred_node
+                best_in_dict[node] = pred_node
 
-    return best_in
+    for key in sorted(nontrivial_nodes):
+        sys.stderr.write('(after) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+
+    return best_in_dict
 
 class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass

@@ -407,6 +407,7 @@ function assemble {
     helper_load_config ${params_config_sh_fn}
 
     # These are explicit inputs:
+    #   input_seqdb
     #   params_ctg_prefix
     #   params_config_sh_fn
     # Params:
@@ -467,8 +468,14 @@ function assemble {
     # Read tracking based on overlaps.
     IPA_TIME log.assemble.cat_tiling_path.memtime \
     cat p_ctg_tiling_path a_ctg_tiling_path > all_ctg.tp
+
+    opt_use_seq_ids=""
+    if [[ ${config_use_seq_ids} -eq 1 ]]; then
+        opt_use_seq_ids="--alias-seqdb ${input_seqdb}"
+    fi
     IPA_TIME log.assemble.pblayout_read_to_contig.memtime \
-    pblayout read-to-contig ${input_m4_phasing_merge} all_ctg.tp > tracked_reads.csv
+    pblayout read-to-contig ${opt_use_seq_ids} ${input_m4_phasing_merge} all_ctg.tp > tracked_reads.csv
+
     IPA_TIME log.assemble.grep_tracked_reads.memtime \
     grep -v "#" tracked_reads.csv | awk '{ if ($2 != "u") { print $1" "$3 } }' > read_to_contig.csv
 }
@@ -703,12 +710,8 @@ function polish_run {
 
         # Extract the read sequences as FASTQ.
         reads_fn="reads.fastq"
-        local opt_use_seq_ids=""
-        if [[ ${config_use_seq_ids} -eq 1 ]]; then
-            opt_use_seq_ids="--alias ${input_seqdb}"
-        fi
         IPA_TIME log.polish_run.pancake_seqfetch_reads.memtime \
-        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${block_reads_fn} ${input_seqdb}
+        pancake seqfetch --log-level ${params_log_level} --out-fmt fastq ${reads_fn} ${block_reads_fn} ${input_seqdb}
 
         # Map.
         IPA_TIME log.polish_run.pbmm2.memtime \

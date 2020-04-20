@@ -1690,7 +1690,7 @@ def ovlp_to_graph(args):
     best_in_dict = {}
     for v in nxsg.nodes():
         # if len(ug.in_edges(v, keys = True)) > 1:
-        sys.stderr.write('(test) v = {}\n'.format(v))
+        # sys.stderr.write('(test) v = {}\n'.format(v))
         v_data = best_in_dict[v] = nxsg.nodes[v]
         if 'best_in' in v_data:
             best_in_dict[v] = v_data["best_in"]
@@ -1890,6 +1890,8 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
     # the nodes of interest.
     # best_in_dict = {}
 
+    changed = {}
+
     for node in nontrivial_nodes:
         in_edges = cg.in_edges(node, keys=True)
 
@@ -1925,16 +1927,27 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
             #         if path_or_edges[-1] == tt:
             #             predecessor_nodes_in_sg.add(path_or_edges[-2])
 
+        prev_best_in = best_in_dict[node]
+
         best_score = None
+        new_best_in = best_in_dict[node]
         for pred_node in predecessor_nodes_in_sg:
             score = sg.get_edge_data(pred_node, node)['score']
             # score = sg.edge(pred_node, node)["score"]
             if best_score == None or score > best_score:
                 best_score = score
-                best_in_dict[node] = pred_node
+                new_best_in = pred_node
+        best_in_dict[node] = new_best_in
+
+        if new_best_in != prev_best_in:
+            changed[node] = (prev_best_in, new_best_in)
 
     for key in sorted(nontrivial_nodes):
         sys.stderr.write('(after) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+
+    for key in sorted(changed.keys()):
+        vals = changed[key]
+        sys.stderr.write('(changed) v = {}: {} -> {}\n'.format(key, vals[0], vals[1]))
 
     return best_in_dict
 

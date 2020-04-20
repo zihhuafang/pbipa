@@ -691,9 +691,9 @@ function polish_run {
         echo "block_id=${block_id}"
         # We infer the existence of these 2 files:
         block_ctg_id_fn="${prep_dir}/block.${block_id}.ctg_id"
-        block_reads_to_contig_fn="${prep_dir}/block.${block_id}.reads"
+        block_reads_fn="${prep_dir}/block.${block_id}.reads"
         test -f "${block_ctg_id_fn}"
-        test -f "${block_reads_to_contig_fn}"
+        test -f "${block_reads_fn}"
 
         # Extract the contig sequence.
         draft_fn="draft.fasta"
@@ -707,7 +707,7 @@ function polish_run {
             opt_use_seq_ids="--alias ${input_seqdb}"
         fi
         IPA_TIME log.polish_run.pancake_seqfetch_reads.memtime \
-        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${block_reads_to_contig_fn} ${input_seqdb}
+        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${block_reads_fn} ${input_seqdb}
 
         # Map.
         IPA_TIME log.polish_run.pbmm2.memtime \

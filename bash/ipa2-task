@@ -646,10 +646,8 @@ function polish_prepare {
         sort -k2 ${input_read_to_contig} > sorted.read_to_contig.csv
 
         # Split contigs into different files.
-        IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
-        awk -v output_blocks="all_block_ids" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block."count".reads"; fn_ctg =  "block."count".ctg_id"; print $2 > fn_ctg; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
-
-        falconc ipa2-polish-prepare --max ${params_max_nchunks} --shard-prefix 'shard' --block-prefix 'block' --out ${output_shard_ids}
+        IPA_TIME log.polish_prepare.split.memtime \
+        falconc ipa-polish-split --max ${params_max_nchunks} --in-read-to-contig-fn sorted.read_to_contig.csv --shard-prefix 'shard' --block-prefix 'block' --out ${output_shard_ids}
     else
         touch sorted.read_to_contig.csv
         # Touch dummy files, just in case that we don't break the workflow

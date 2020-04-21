@@ -647,7 +647,7 @@ function polish_prepare {
 
         # Split contigs into different files.
         IPA_TIME log.polish_prepare.split.memtime \
-        falconc ipa-polish-split --mb 100 --max ${params_max_nchunks} --in-read-to-contig-fn sorted.read_to_contig.csv --shard-prefix 'shard' --block-prefix 'block' --out ${output_shard_ids} ${input_p_ctg_fasta_fai} ${input_a_ctg_fasta_fai}
+        falconc ipa-polish-split --mb ${config_max_polish_block_mb} --max ${params_max_nchunks} --in-read-to-contig-fn sorted.read_to_contig.csv --shard-prefix 'shard' --block-prefix 'block' --out ${output_shard_ids} ${input_p_ctg_fasta_fai} ${input_a_ctg_fasta_fai}
     else
         touch sorted.read_to_contig.csv
         # Touch dummy files, just in case that we don't break the workflow

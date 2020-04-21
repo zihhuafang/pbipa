@@ -1,3 +1,4 @@
+# vim: ft=python:
 import os
 print(f'CWD:{os.getcwd()}\n')
 

@@ -1,0 +1,9 @@
+{
+    "ipa2.reads_fn": "/pbi/dept/secondary/siv/testdata/ipa2/ipa2-d02-ecoli/reads.consensusreadset.xml",
+    "ipa2.genome_size": 5000000,
+    "ipa2.coverage": 30,
+    "ipa2.advanced_options": "",
+    "ipa2.polish_run": 1,
+    "ipa2.phase_run": 1,
+    "ipa2.nproc": 8
+}

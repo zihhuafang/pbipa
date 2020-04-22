@@ -5,5 +5,6 @@
     "ipa2.advanced_options": "",
     "ipa2.polish_run": 1,
     "ipa2.phase_run": 1,
+    "ipa2.max_nchunks": 1,
     "ipa2.nproc": 8
 }

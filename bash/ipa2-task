@@ -36,7 +36,27 @@ function generate_config_from_workflow {
     # Outputs:
     #   output_fn
 
-    echo "config_genome_size=${params_genome_size}" > input_opt.cfg
+    # Defaults
+    echo "config_autocomp_max_cov=1" > input_opt.cfg
+    echo "config_block_size=4096" >> input_opt.cfg
+    echo "config_coverage=0" >> input_opt.cfg
+    echo "config_existing_db_prefix=" >> input_opt.cfg
+    echo "config_genome_size=0" >> input_opt.cfg
+    echo "config_ovl_filter_opt=--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4" >> input_opt.cfg
+    echo "config_ovl_min_idt=98" >> input_opt.cfg
+    echo "config_ovl_min_len=1000" >> input_opt.cfg
+    echo "config_ovl_opt=" >> input_opt.cfg
+    echo "config_phase_run=1" >> input_opt.cfg
+    echo "config_phasing_opt=" >> input_opt.cfg
+    echo "config_phasing_piles=10000" >> input_opt.cfg
+    echo "config_polish_run=0" >> input_opt.cfg
+    echo "config_seeddb_opt=-k 30 -w 80 --space 1" >> input_opt.cfg
+    echo "config_seqdb_opt=--compression 1" >> input_opt.cfg
+    echo "config_use_seq_ids=1" >> input_opt.cfg
+    echo "" >> input_opt.cfg
+
+    # User configured options.
+    echo "config_genome_size=${params_genome_size}" >> input_opt.cfg
     echo "config_coverage=${params_coverage}" >> input_opt.cfg
     echo "config_polish_run=${params_polish_run}" >> input_opt.cfg
     echo "config_phase_run=${params_phase_run}" >> input_opt.cfg
@@ -113,10 +133,20 @@ function build_db {
     # plain single sequence file.
     local input_reads_ext=${input_reads_fn##*.}
     if [[ "${input_reads_ext}" == "fofn" ]]; then
-        cp ${input_reads_fn} input.fofn
+        #cp ${input_reads_fn} input.fofn
+        rm -f input.fofn
+        local odirname=$PWD
+        local idirname=$(dirname ${input_reads_fn})
+        pushd ${idirname}
+        cat ${input_reads_fn} | while read line; do
+            echo "$(readlink -f ${line})" >> "${odirname}/input.fofn"
+        done
+        popd
     else
         echo "${input_reads_fn}" > input.fofn
     fi
+    cat input.fofn
+    echo "at $(readlink -f input.fofn)"
 
     local local_sample_bases=$((config_genome_size * config_coverage))
 
@@ -126,7 +156,7 @@ function build_db {
 
         # Convert the entire set of input sequences into the DB.
         IPA_TIME log.build_db.seqdb_full.memtime \
-        pancake seqdb --log-level ${params_log_level}  --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} ${input_reads_fn}
+        pancake seqdb --log-level ${params_log_level}  --compression 0 --block-size ${config_block_size} ${config_seqdb_opt} ${params_db_prefix} input.fofn
 
         # Moving to ".full.seqdb" after the DB is generated ensures the <prefix>.seqdb[0-9]+.seq files exist.
         # Otherwise, these files would have ".full" at the end of their prefix, and the workflow
@@ -262,11 +292,11 @@ function phasing_prepare {
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_phase_run} -eq 1 ]]; then
         # Tag the piles then sort them on pile boundary, by pile similarity
-        IPA_TIME log.ovl_asym_merge.nighthawk_membership.memtime \
+        IPA_TIME log.phasing_prepare.nighthawk_membership.memtime \
         nighthawk membership --log-level ${params_log_level} ${input_m4} > tagged.ovl
 
         # Sort on membership tag
-        IPA_TIME log.ovl_asym_merge.nighthawk_membership_sort.memtime \
+        IPA_TIME log.phasing_prepare.nighthawk_membership_sort.memtime \
         sort -k14 tagged.ovl > tagged.sorted.ovl
 
         # Cleanup
@@ -360,7 +390,7 @@ function ovl_filter {
 
     local opt_autocomp=""
     if [[ $config_autocomp_max_cov -eq 1 ]]; then
-        IPA_TIME log.ovl_asym_merge.falconc_ovl_cov_stats.memtime \
+        IPA_TIME log.ovl_filter.falconc_ovl_cov_stats.memtime \
         falconc ovl-cov-stats --in-fn=ovl.fofn > covstat.json
         local target_val=$(python3 -c "import json; d = json.loads(open('covstat.json').read()); print(int(d['median'] * 4))")
         opt_autocomp="--max-cov ${target_val} --max-diff ${target_val}"
@@ -373,11 +403,11 @@ function ovl_filter {
 
     # Filter. Create and use a new M4 index for speed, and multithread
     # over portions of that index.
-    IPA_TIME log.ovl_asym_merge.m4filt.memtime \
+    IPA_TIME log.ovl_filter.m4filt.memtime \
     falconc  m4filt --n-proc ${params_num_threads} --in ${local_m4} --out ${output_m4_chimerfilt} --keepIntermediates ${config_ovl_filter_opt} ${opt_autocomp} --filter-log m4-readfilt.log
 
     # Containment removal.
-    IPA_TIME log.ovl_asym_merge.m4filtcontained.memtime \
+    IPA_TIME log.ovl_filter.m4filtcontained.memtime \
     falconc m4filt-contained --min-idt ${config_ovl_min_idt} --min-len ${config_ovl_min_len} --in ${output_m4_chimerfilt} --out ${output_m4_final}
 }
 
@@ -387,6 +417,7 @@ function assemble {
     helper_load_config ${params_config_sh_fn}
 
     # These are explicit inputs:
+    #   input_seqdb
     #   params_ctg_prefix
     #   params_config_sh_fn
     # Params:
@@ -409,24 +440,20 @@ function assemble {
 
     local opt_use_seq_ids=""
     if [[ ${config_use_seq_ids} -eq 1 ]]; then
-        opt_use_seq_ids="--alias ${input_seqdb}"
+        opt_use_seq_ids="--alias ${input_seqdb} --write-ids"
     fi
     preads4falcon_bn=reads_in_layout.fasta
     pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fasta ${preads4falcon_bn} ${reads_in_layout_fn} ${input_seqdb}
 
-    opt_use_seq_ids=""
-    if [[ ${config_use_seq_ids} -eq 1 ]]; then
-        opt_use_seq_ids="--seqdb-fn ${input_seqdb}"
-    fi
     IPA_TIME log.assemble.graph_to_contig.memtime \
-    ipa2_graph_to_contig ${opt_use_seq_ids} --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
+    ipa2_graph_to_contig --preads-fasta-fn ${preads4falcon_bn} 2>&1 | tee fc_graph_to_contig.log
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 
     if [[ -s p_ctg.fasta ]]; then
         ls -larth p_ctg.fasta
         pwd
-        IPA_TIME log.assemble.samtools_p_ctg.memtime \
+        IPA_TIME log.assemble.samtools_faidx_p_ctg.memtime \
         samtools faidx p_ctg.fasta  # for oric later
         (grep ">" p_ctg.fasta | grep "ctg_circular" | cut -d ' ' -f 1 | tr -d ">" > circular_contigs.csv) || touch circular_contigs.csv
         ### The following line crashed in one example, so I removed it:
@@ -444,15 +471,21 @@ function assemble {
     touch a_ctg.fasta.fai
 
     if [[ -s a_ctg.fasta ]]; then
-        IPA_TIME log.assemble.samtools_a_ctg.memtime \
+        IPA_TIME log.assemble.samtools_faidx_a_ctg.memtime \
         samtools faidx a_ctg.fasta
     fi
 
     # Read tracking based on overlaps.
     IPA_TIME log.assemble.cat_tiling_path.memtime \
     cat p_ctg_tiling_path a_ctg_tiling_path > all_ctg.tp
+
+    opt_use_seq_ids=""
+    if [[ ${config_use_seq_ids} -eq 1 ]]; then
+        opt_use_seq_ids="--alias-seqdb ${input_seqdb}"
+    fi
     IPA_TIME log.assemble.pblayout_read_to_contig.memtime \
-    pblayout read-to-contig ${input_m4_phasing_merge} all_ctg.tp > tracked_reads.csv
+    pblayout read-to-contig ${opt_use_seq_ids} ${input_m4_phasing_merge} all_ctg.tp > tracked_reads.csv
+
     IPA_TIME log.assemble.grep_tracked_reads.memtime \
     grep -v "#" tracked_reads.csv | awk '{ if ($2 != "u") { print $1" "$3 } }' > read_to_contig.csv
 }
@@ -609,11 +642,12 @@ function polish_prepare {
     #   params_log_level
     #   params_tmp_dir
     # Output:
-    #   *.txt in cwd
-    #   ${output_blocks} (same info in 1 file)
-    helper_load_config ${params_config_sh_fn}
+    #   Various wildcard files.
+    #   output_shard_ids (one per line)
+    #   output_pwd (really for Cromwell)
+    touch ${output_shard_ids}
 
-    pwd > ${output_blockdir_fn}
+    helper_load_config ${params_config_sh_fn}
 
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_polish_run} -ge 1 ]]; then
@@ -622,20 +656,19 @@ function polish_prepare {
         sort -k2 ${input_read_to_contig} > sorted.read_to_contig.csv
 
         # Split contigs into different files.
-        IPA_TIME log.polish_prepare.split_read_to_contig.memtime \
-        awk -v output_blocks="${output_blocks}" 'BEGIN { prev = ""; count = 0; fn_blocks = output_blocks} { if ($2 != prev) { fn_reads = "block_id."count".reads"; fn_ctg =  "block_id."count".ctg_id"; print $2 > fn_ctg; print count > fn_blocks; count++} {print $1 > fn_reads} prev = $2; }' sorted.read_to_contig.csv
+        IPA_TIME log.polish_prepare.split.memtime \
+        falconc ipa-polish-split --mb ${config_max_polish_block_mb} --max ${params_max_nchunks} --in-read-to-contig-fn sorted.read_to_contig.csv --shard-prefix 'shard' --block-prefix 'block' --out ${output_shard_ids} ${input_p_ctg_fasta_fai} ${input_a_ctg_fasta_fai}
     else
         touch sorted.read_to_contig.csv
-
-        num_ctg=0
-        for ctg in $(cut -f1,1 ${input_p_ctg_fasta_fai} ${input_a_ctg_fasta_fai})
-        do
-            touch block_id.${num_ctg}.reads
-            echo ${ctg} > block_id.${num_ctg}.ctg_id
-            echo ${num_ctg}
-            num_ctg=$((num_ctg + 1))
-        done > ${output_blocks}
+        # Touch dummy files, just in case that we don't break the workflow
+        # in case there aren't any files generated for the wildcard expansion.
+        touch block_id.0.reads
+        touch block_id.0.ctg_id
+        echo "0" >| shard.0.block_ids
+        # Snakemake will have 1 shard (in wildcard), but Cromwell will have 0 shards (in output_shard_ids).
     fi
+
+    pwd >| ${output_pwd}
 }
 
 function polish_run {
@@ -645,11 +678,10 @@ function polish_run {
     #   input_p_ctg_fasta
     #   input_a_ctg_fasta
     # Output:
-    #   output_consensus_fn
+    #   output_consensus
     # Params:
-    #   params_reads_to_contig_fn
-    #   params_ctg_id_fn
-    #   params_block_id
+    #   params_polish_prepare_dn
+    #   params_shard_id
     #   params_num_threads
     #   params_config_sh_fn
     #   params_log_level
@@ -657,52 +689,67 @@ function polish_run {
 
     helper_load_config ${params_config_sh_fn}
 
-    # Extract the contig sequence.
-    draft_fn="draft.fasta"
-    IPA_TIME log.polish_run.pancake_seqfetch_contigs.memtime \
-    pancake seqfetch --log-level ${params_log_level} --out-fmt fasta ${draft_fn} ${params_ctg_id_fn} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
+    touch ${output_consensus}
 
     # Only run if the polishing level is > 0.
-    if [[ ${config_polish_run} -ge 1 ]]; then
+    if [[ ${config_polish_run} -lt 1 ]]; then
+        # If we're not polishing, then this run is just a dummy run.
+        # Touch a dummy output so that the workflow doesn't fail.
+        #touch ${output_consensus} # already did that
+        return
+    fi
+
+    prep_dir=${params_polish_prepare_dn}
+    shard_fn="${prep_dir}/shard.${params_shard_id}.block_ids"
+    read_to_contig_fn="${prep_dir}/sorted.read_to_contig.csv"
+
+    cat ${shard_fn} | while read block_id; do
+        echo "block_id=${block_id}"
+        # We infer the existence of these 2 files:
+        block_ctg_id_fn="${prep_dir}/block.${block_id}.ctg_id"
+        block_reads_fn="${prep_dir}/block.${block_id}.reads"
+        test -f "${block_ctg_id_fn}"
+        test -f "${block_reads_fn}"
+
+        # Extract the contig sequence.
+        draft_fn="draft.fasta"
+        IPA_TIME log.polish_run.pancake_seqfetch_contigs.memtime \
+        pancake seqfetch --log-level ${params_log_level} --out-fmt fasta ${draft_fn} ${block_ctg_id_fn} ${input_p_ctg_fasta} ${input_a_ctg_fasta}
 
         # Extract the read sequences as FASTQ.
         reads_fn="reads.fastq"
-        local opt_use_seq_ids=""
-        if [[ ${config_use_seq_ids} -eq 1 ]]; then
-            opt_use_seq_ids="--alias ${input_seqdb}"
-        fi
         IPA_TIME log.polish_run.pancake_seqfetch_reads.memtime \
-        pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fastq ${reads_fn} ${params_reads_to_contig_fn} ${input_seqdb}
+        pancake seqfetch --log-level ${params_log_level} --out-fmt fastq ${reads_fn} ${block_reads_fn} ${input_seqdb}
 
         # Map.
         IPA_TIME log.polish_run.pbmm2.memtime \
-        pbmm2 align --log-level ${params_log_level} --sort -j ${params_num_threads} --preset CCS ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
+        pbmm2 align --log-level ${params_log_level} --sort -j ${params_num_threads} --preset CCS --enforced-mapping ${read_to_contig_fn} --max-secondary-alns 10 ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
 
         # Filter.
+        #   - 0x200 not passing filters, such as platform/vendor quality controls
+        #   - 0x400 PCR or optical duplicate
         IPA_TIME log.polish_run.falconc_bam_filter.memtime \
-        falconc bam-filter-clipped -t -F 0x704 --input-fn:- --output-fn aln.sam --output-count-fn filtered_aln_count.txt < aln.unfiltered.bam
+        falconc bam-filter-clipped -t -F 0x604 --input-fn:- --output-fn aln.sam --output-count-fn filtered_aln_count.txt < aln.unfiltered.bam
 
         # The filtered_aln_count.txt is generated by `falconc bam-filter-clipped`.
         local is_good=$(cat filtered_aln_count.txt)
         if [ ${is_good} -eq "0" ]; then
-            # There are no records in the SAM file. Create an empty output file.
-            touch ${output_consensus_fn}
+            : # There are no records in the SAM file. Output for this block is empty.
         else
             IPA_TIME log.polish_run.racon.memtime \
-            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} > ${output_consensus_fn}
+            racon -t ${params_num_threads} ${reads_fn} aln.sam ${draft_fn} >> ${output_consensus}
         fi
 
-        # Cleanup
-        rm -f *.bam *.sam *.fastq
-    else
-        # If we're not polishing, then just forward the draft to the output.
-        mv ${draft_fn} ${output_consensus_fn}
-    fi
+        # Cleanup. (Most of these are clobbered each iteration anyway.)
+        rm -f *.bam *.sam *.fastq ${draft_fn} filtered_aln_count.txt
+    done
 }
 
 function polish_merge {
     # Explicit inputs:
     #   input_fofn
+    #   input_p_ctg_fasta
+    #   input_a_ctg_fasta
     # Params:
     #   params_config_sh_fn
     #   params_log_level
@@ -717,11 +764,18 @@ function polish_merge {
         ls -lH ${fn}
     done < ${input_fofn}
 
-    # Merge.
-    cat ${input_fofn} | xargs cat > ${output_fasta}
+    # Only run if the polishing level is > 0.
+    if [[ ${config_polish_run} -ge 1 ]]; then
+        # Merge.
+        IPA_TIME log.polish_merge.cat.memtime \
+        cat ${input_fofn} | xargs cat > ${output_fasta}
+    else
+        cat ${input_p_ctg_fasta} ${input_a_ctg_fasta} > ${output_fasta}
+    fi
 
     touch ${output_fasta}.fai
     if [[ -s ${output_fasta} ]]; then
+        IPA_TIME log.polish_merge.samtools_faidx.memtime \
         samtools faidx ${output_fasta}
     fi
 }
@@ -732,16 +786,28 @@ function final_collect {
     #   input_p_ctg_fasta
     #   input_a_ctg_fasta
     # Outputs:
-    #   output_assembly_final_fasta
     #   output_p_ctg_fasta
     #   output_a_ctg_fasta
     # Params:
     #   params_log_level
     #   params_tmp_dir
+    #   params_polish_run
 
-    ln -sf ${input_assembly_merged_fasta} ${output_assembly_final_fasta}
-    ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}
-    ln -sf ${input_a_ctg_fasta} ${output_a_ctg_fasta}
+    if [[ ${params_polish_run} -ge 1 ]]; then
+        # grab the sequences that are primaries and alts
+        perl -lane 'print $F[0] if $F[0] !~ /\-/' ${input_assembly_merged_fasta}.fai > tmp.p.txt
+        perl -lane 'print $F[0] if $F[0] =~ /\-/' ${input_assembly_merged_fasta}.fai > tmp.a.txt
+
+        # split the files back into p/a ctgs
+        pancake seqfetch --log-level INFO --out-fmt fasta ${output_p_ctg_fasta} tmp.p.txt ${input_assembly_merged_fasta}
+        pancake seqfetch --log-level INFO --out-fmt fasta ${output_a_ctg_fasta} tmp.a.txt ${input_assembly_merged_fasta}
+
+        #cleanup
+        rm -rf tmp*
+    else
+        ln -sf ${input_p_ctg_fasta} ${output_p_ctg_fasta}
+        ln -sf ${input_a_ctg_fasta} ${output_a_ctg_fasta}
+    fi
 }
 
 function help {

@@ -55,7 +55,8 @@ export ENABLED_INTERNAL_TESTS="${bamboo_ENABLED_INTERNAL_TESTS}"
 export LDFLAGS="-static-libstdc++ -static-libgcc"
 
 source env.sh
-
+export PATH=${IPA2_WORKSPACE}/bash/:$PATH
+which ipa2-task
 cd examples/ivan-200k-t1
 make
 

@@ -139,14 +139,17 @@ function build_db {
         local idirname=$(dirname ${input_reads_fn})
         pushd ${idirname}
         cat ${input_reads_fn} | while read line; do
-            echo "$(readlink -f ${line})" >> "${odirname}/input.fofn"
+            if [[ "${line}" == /* ]]; then
+                echo "${line}" >> "${odirname}/input.fofn"
+            else
+                echo "$(readlink -f ${line})" >> "${odirname}/input.fofn"
+            fi
         done
         popd
     else
         echo "${input_reads_fn}" > input.fofn
     fi
     cat input.fofn
-    echo "at $(readlink -f input.fofn)"
 
     local local_sample_bases=$((config_genome_size * config_coverage))
 

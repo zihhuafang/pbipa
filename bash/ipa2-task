@@ -726,7 +726,7 @@ function polish_run {
 
         # Map.
         IPA_TIME log.polish_run.s${params_shard_id}.b${block_id}.pbmm2.memtime \
-        pbmm2 align --log-level ${params_log_level} --sort -j ${params_num_threads} --preset CCS --enforced-mapping ${read_to_contig_fn} --max-secondary-alns 10 ${draft_fn} ${reads_fn} | samtools view -q 5 -bh > aln.unfiltered.bam
+        pbmm2 align --log-level ${params_log_level} --sort -j ${params_num_threads} --preset CCS --enforced-mapping ${read_to_contig_fn} --max-secondary-alns 10 ${draft_fn} ${reads_fn} aln.unfiltered.bam
 
         # Filter.
         #   - 0x200 not passing filters, such as platform/vendor quality controls

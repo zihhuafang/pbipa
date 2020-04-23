@@ -446,6 +446,7 @@ function assemble {
         opt_use_seq_ids="--alias ${input_seqdb} --write-ids"
     fi
     preads4falcon_bn=reads_in_layout.fasta
+    IPA_TIME log.assemble.pancake_seqfetch.reads_in_layout.memtime \
     pancake seqfetch --log-level ${params_log_level} ${opt_use_seq_ids} --out-fmt fasta ${preads4falcon_bn} ${reads_in_layout_fn} ${input_seqdb}
 
     IPA_TIME log.assemble.graph_to_contig.memtime \

@@ -1,4 +1,4 @@
 temp/
 LOCAL/
-examples/*/RUN
+examples/*/RUN*
 .vscode/

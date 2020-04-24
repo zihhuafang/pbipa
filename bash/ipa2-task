@@ -247,7 +247,7 @@ function ovl_asym_run {
     pancake ovl-hifi --log-level ${params_log_level} --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${config_ovl_opt} ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
     IPA_TIME log.ovl_asym_run.sort.memtime \
-    sort -k1 ovl.m4 > ovl.sorted.m4
+    sort --temporary-directory=${params_tmp_dir} -k1 ovl.m4 > ovl.sorted.m4
 }
 
 function ovl_asym_merge {
@@ -268,7 +268,7 @@ function ovl_asym_merge {
 
     # Merge sort.
     IPA_TIME log.ovl_asym_merge.mergesort.memtime \
-    sort -k1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
+    sort --temporary-directory=${params_tmp_dir} -k1 -m $(cat ${input_fofn} | xargs) > ovl.merged.m4
     echo ovl.merged.m4 > ovl.merged.fofn
 
     # Filter out any local alignments. Important for phasing.
@@ -300,7 +300,7 @@ function phasing_prepare {
 
         # Sort on membership tag
         IPA_TIME log.phasing_prepare.nighthawk_membership_sort.memtime \
-        sort -k14 tagged.ovl > tagged.sorted.ovl
+        sort --temporary-directory=${params_tmp_dir} -k14 tagged.ovl > tagged.sorted.ovl
 
         # Cleanup
         rm tagged.ovl

@@ -9,7 +9,7 @@ if [[ $USER == bamboo ]]; then
   ## Load modules
   set +vx
   type module >& /dev/null || . /mnt/software/Modules/current/init/bash
-  source module.sh
+  source module.build.sh
   set -vx
 fi
 
@@ -57,6 +57,19 @@ export LDFLAGS="-static-libstdc++ -static-libgcc"
 git submodule update --init --recursive --remote
 source env.sh
 BUILD_DIR=build make all
+
+# Load the runtime modules if on the server.
+# Reason: we need networkx, and the only way to load it
+# is from smrttools, but we don't want smrttools loaded during
+# the build so that everything is built locally.
+if [[ $USER == bamboo ]]; then
+  ## Load modules
+  set +vx
+  type module >& /dev/null || . /mnt/software/Modules/current/init/bash
+  source module.sh
+  source env.sh
+  set -vx
+fi
 
 cd examples/ivan-200k-t1
 make

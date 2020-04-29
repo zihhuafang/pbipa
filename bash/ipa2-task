@@ -1,6 +1,13 @@
 #!/bin/bash
 
+VERSION="0.1.0"
+
 THISDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+function version {
+    local local_commit=$(git log -1 --pretty=%h)
+    echo "ipa2-task ${VERSION} (commit ${local_commit})"
+}
 
 function helper_load_config {
     local config_sh_fn="$1"
@@ -866,6 +873,7 @@ case $1 in
   |polish_run \
   |polish_merge \
   |final_collect \
+  |version \
 )
     set -vexu -o pipefail
     $*

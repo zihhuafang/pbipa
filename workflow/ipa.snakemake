@@ -473,8 +473,8 @@ rule polish_merge:
 
 rule final:
     output:
-        p_ctg_fasta = protected("final/draft.p_ctg.fasta"),
-        a_ctg_fasta = protected("final/draft.a_ctg.fasta"),
+        p_ctg_fasta = protected("final/final.p_ctg.fasta"),
+        a_ctg_fasta = protected("final/final.a_ctg.fasta"),
     input:
         assembly_merged_fasta = rules.polish_merge.output.consensus_merged,
         assembly_merged_fai = rules.polish_merge.output.consensus_merged_fai,

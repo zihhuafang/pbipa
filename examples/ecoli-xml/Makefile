@@ -22,17 +22,17 @@ cluster_JOBS=20
 
 snake:
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.yaml --config MAKEDIR=.. -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
 
 qsub:
 	mkdir -p RUN/qsub_log
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml --config MAKEDIR=.. -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 
 unlock:
 	mkdir -p RUN/qsub_log
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake --unlock -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml --config MAKEDIR=.. -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake --unlock -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 
 wdl:
 	${MAKE} logenv

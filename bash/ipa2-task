@@ -306,7 +306,7 @@ function phasing_prepare {
         nighthawk membership --log-level ${params_log_level} ${input_m4} > tagged.ovl
 
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-        nighthawk split --by-similarity --split-type ovlpiles --log-level INFO ${config_phasing_piles} chunk tagged.ovl
+        nighthawk split --by-similarity --split-type ovlpiles --log-level INFO --limit ${config_phasing_piles} chunk tagged.ovl
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
         for ((block1=0;block1<num_blocks;block1++)); do

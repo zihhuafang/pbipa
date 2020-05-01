@@ -301,12 +301,9 @@ function phasing_prepare {
 
     # Only run splitting if the polishing level is > 0.
     if [[ ${config_phase_run} -eq 1 ]]; then
-        # Tag the piles then sort them on pile boundary, by pile similarity
-        IPA_TIME log.phasing_prepare.nighthawk_membership.memtime \
-        nighthawk membership --log-level ${params_log_level} ${input_m4} > tagged.ovl
-
+        # Tag the piles then split them on pile boundary, by pile similarity
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-        nighthawk split --by-similarity --split-type ovlpiles --log-level INFO --limit ${config_phasing_piles} chunk tagged.ovl
+        nighthawk split --by-similarity --split-type ovlpiles --log-level INFO --limit ${config_phasing_piles} chunk ${input_m4}
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
         for ((block1=0;block1<num_blocks;block1++)); do

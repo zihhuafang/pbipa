@@ -305,15 +305,8 @@ function phasing_prepare {
         IPA_TIME log.phasing_prepare.nighthawk_membership.memtime \
         nighthawk membership --log-level ${params_log_level} ${input_m4} > tagged.ovl
 
-        # Sort on membership tag
-        IPA_TIME log.phasing_prepare.nighthawk_membership_sort.memtime \
-        sort --temporary-directory=${params_tmp_dir} -k14 tagged.ovl > tagged.sorted.ovl
-
-        # Cleanup
-        rm tagged.ovl
-
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-        nighthawk split --split-type ovlpiles --limit ${config_phasing_piles} chunk tagged.sorted.ovl
+        nighthawk split --by-similarity --split-type ovlpiles --log-level INFO ${config_phasing_piles} chunk tagged.ovl
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
         for ((block1=0;block1<num_blocks;block1++)); do
@@ -353,8 +346,14 @@ function phasing_run {
         opt_use_seq_ids="--alias"
     fi
 
+    IPA_TIME log.phasing_run.nighthawk_presort_pile.memtime \
+    sort -k14 ${input_m4} > sorted.m4
+
     IPA_TIME log.phasing_run.nighthawk_phase.memtime \
-    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
+    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb}  sorted.m4 ${output_scraps_m4} > ${output_keep_m4}
+
+    # Remove sorted file, TODO maybe keep the sorted and rename it?
+    rm sorted.m4
 }
 
 function phasing_merge {

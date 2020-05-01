@@ -1,0 +1,11 @@
+{
+    "pb_assembly_hifi.reads": "input.fofn",
+    "pb_assembly_hifi.ipa2_genome_size": 0,
+    "pb_assembly_hifi.ipa2_downsampled_coverage": 0,
+    "pb_assembly_hifi.ipa2_advanced_options": "",
+    "pb_assembly_hifi.ipa2_run_polishing": 1,
+    "pb_assembly_hifi.ipa2_run_phasing": 0,
+    "pb_assembly_hifi.nproc": 8,
+    "pb_assembly_hifi.max_nchunks": 20,
+    "pb_assembly_hifi.tmp_dir": "/tmp"
+}

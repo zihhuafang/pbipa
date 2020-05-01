@@ -5,15 +5,16 @@ print(f'CWD:{os.getcwd()}\n')
 CWD = os.getcwd()
 CTG_PREFIX = "ctg."
 
-READS_FN = config['ipa2.reads_fn']
-GENOME_SIZE = config['ipa2.genome_size']
-COVERAGE = config['ipa2.coverage']
-ADVANCED_OPTIONS = config["ipa2.advanced_options"]
-POLISH_RUN = 1 if config['ipa2.polish_run'] else 0
-PHASING_RUN = 1 if config['ipa2.phase_run'] else 0
-NPROC = config['ipa2.nproc']
-MAX_NCHUNKS = 40 if 'ipa2.max_nchunks' not in config else config['ipa2.max_nchunks']
-TMP_DIR = '/tmp' if 'ipa2.tmp_dir' not in config else config['ipa2.tmp_dir']
+cfg = config['ipa']
+READS_FN = cfg['reads_fn']
+GENOME_SIZE = cfg['genome_size']
+COVERAGE = cfg['coverage']
+ADVANCED_OPTIONS = cfg["advanced_options"]
+POLISH_RUN = 1 if cfg['polish_run'] else 0
+PHASING_RUN = 1 if cfg['phase_run'] else 0
+NPROC = cfg['nproc']
+MAX_NCHUNKS = 40 if 'max_nchunks' not in cfg else cfg['max_nchunks']
+TMP_DIR = '/tmp' if 'tmp_dir' not in cfg else cfg['tmp_dir']
 
 LOG_LEVEL = "INFO"
 READS_DB_PREFIX = "reads"

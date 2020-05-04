@@ -5,7 +5,7 @@ print(f'CWD:{os.getcwd()}\n')
 CWD = os.getcwd()
 CTG_PREFIX = "ctg."
 
-cfg = config['ipa']
+cfg = config
 READS_FN = cfg['reads_fn']
 GENOME_SIZE = cfg['genome_size']
 COVERAGE = cfg['coverage']

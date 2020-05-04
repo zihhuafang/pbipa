@@ -1,8 +1,7 @@
-ipa:
-    reads_fn: "/pbi/dept/secondary/siv/testdata/ipa2/ipa2-d02-ecoli/reads.consensusreadset.xml"
-    genome_size: 5000000
-    coverage: 30
-    advanced_options: ""
-    polish_run: 1
-    phase_run: 1
-    nproc: 8
+reads_fn: "/pbi/dept/secondary/siv/testdata/ipa2/ipa2-d02-ecoli/reads.consensusreadset.xml"
+genome_size: 5000000
+coverage: 30
+advanced_options: ""
+polish_run: 1
+phase_run: 1
+nproc: 8

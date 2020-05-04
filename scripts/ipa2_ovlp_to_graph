@@ -1792,9 +1792,6 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
                     predecessor_nodes_in_sg.add(path_or_edges[-2])
         return predecessor_nodes_in_sg
 
-    # c_path.append((path_start, path_key, path_end,
-    #             path_length, path_score, path, len(path)))
-
     # Create a graph for the purposes of this function only.
     cg = nx.MultiDiGraph()
     for vals in simple_ctg_paths:
@@ -1829,10 +1826,8 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
                 sys.stderr.write('    => Not interesting, len(in_edges) <= 1.\n')
                 continue
             # Sort by length in descending order.
-            # in_edges = sorted(cg.in_edges(v, keys=True), key = lambda x: x.attr["length"], reverse = True)
             in_edges = sorted(in_edges, key = lambda x: cg.get_edge_data(x[0], x[1], key=x[2])['length'], reverse = True)
             # Longest contig entering this node.
-            # max_len = in_edges[0].attr["length"]
             ss, tt, vv = in_edges[0]
             max_e_data = cg.get_edge_data(ss, tt, key=vv)
             max_len = max_e_data['length']
@@ -1884,14 +1879,8 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
                 ### DEBUG.
                 sys.stderr.write('        => Increasing length of the single out edge. Length before = {}. Updated edge: {}\n'.format(len_before, print_cg_edge_data(ss, tt, vv)))
 
-        # if len(edges_to_remove) > 0:
-        #     converged = False
         sys.stderr.write('num_iterations = {}, num_removed_edges = {}, converged = {}\n'.format(num_iterations, num_removed_edges, converged))
         num_iterations += 1
-
-    # Mark the best in-edge for each of the remaining input edges of
-    # the nodes of interest.
-    # best_in_dict = {}
 
     changed = {}
 
@@ -1910,25 +1899,6 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
             ss, tt, vv = e
             for val in get_next_to_last_nodes_from_cg_edge(cg, ss, tt, vv):
                 predecessor_nodes_in_sg.add(val)
-
-            # e_data = cg.get_edge_data(ss, tt, key=vv)
-            # s, v, t, p_len, p_score, path, n_edges, is_spur = e_data['data']
-            # last_utg = path[-1]
-            # utg_s, utg_t, utg_v = last_utg
-            # utg_length, utg_score, utg_path_or_edges, utg_type_ = u_edge_data[(utg_s, utg_t, utg_v)]
-
-            # # Find all predecessors.
-            # if utg_type_ == "simple":
-            #     predecessor_nodes_in_sg.add(utg_path_or_edges[-2])
-            # elif type_ == "compound":
-            #     t_in_nodes = set()
-            #     for ss, vv, tt in utg_path_or_edges:
-            #         if tt != t:
-            #             continue
-            #         length, score, path_or_edges, type_ = u_edge_data[(
-            #             ss, vv, tt)]
-            #         if path_or_edges[-1] == tt:
-            #             predecessor_nodes_in_sg.add(path_or_edges[-2])
 
         prev_best_in = best_in_dict[node]
 

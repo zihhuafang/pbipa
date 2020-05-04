@@ -1671,11 +1671,13 @@ def ovlp_to_graph(args):
     time_identify_spurs_2 += [time.time()]
     log_time('identify_spurs-2', time_short_edges_to_remove)
 
+    time_write_ug = [time.time()]
     with open('ug.final.gfa', 'w') as fp_out:
         generic_nx_to_gfa(fp_out, ug, False, None)
-
     with open('ug.final.dual.gfa', 'w') as fp_out:
         unitig_nx_to_gfa(fp_out, ug, u_edge_data)
+    time_write_ug == [time.time()]
+    log_time('write-ug', time_write_ug)
 
     # contig construction from utgs
     time_construct_c_path_from_utgs = [time.time()]

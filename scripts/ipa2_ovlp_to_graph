@@ -1691,7 +1691,7 @@ def ovlp_to_graph(args):
     for v in nxsg.nodes():
         # if len(ug.in_edges(v, keys = True)) > 1:
         # sys.stderr.write('(test) v = {}\n'.format(v))
-        v_data = best_in_dict[v] = nxsg.nodes[v]
+        v_data = nxsg.nodes[v]
         if 'best_in' in v_data:
             best_in_dict[v] = v_data["best_in"]
     # for key in sorted(best_in_dict.keys()):

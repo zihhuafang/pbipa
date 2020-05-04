@@ -343,14 +343,9 @@ function phasing_run {
         opt_use_seq_ids="--alias"
     fi
 
-    IPA_TIME log.phasing_run.nighthawk_presort_pile.memtime \
-    sort -k14 ${input_m4} > sorted.m4
-
     IPA_TIME log.phasing_run.nighthawk_phase.memtime \
-    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb}  sorted.m4 ${output_scraps_m4} > ${output_keep_m4}
+    nighthawk phase --num-threads ${params_num_threads} ${opt_use_seq_ids} ${config_phasing_opt} ${input_seqdb} ${input_m4} ${output_scraps_m4} > ${output_keep_m4}
 
-    # Remove sorted file, TODO maybe keep the sorted and rename it?
-    rm sorted.m4
 }
 
 function phasing_merge {

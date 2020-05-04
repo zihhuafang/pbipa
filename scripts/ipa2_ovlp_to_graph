@@ -1449,6 +1449,57 @@ def identify_edges_to_remove(compound_paths, ug2):
                     edges_to_remove.add((ss, tt, vv))
     return edges_to_remove
 
+def generic_nx_to_gfa(fp_out, graph, use_keys=False, node_len_dict=None):
+    line = 'H\tVN:Z:1.0'
+    fp_out.write(line + '\n')
+
+    if node_len_dict != None:
+        for v in graph.nodes():
+            line = 'S\t%s\t%s\tLN:i:%d' % (v, '*', node_len_dict[v])
+            fp_out.write(line + '\n')
+    else:
+        for v in graph.nodes():
+            line = 'S\t%s\t%s\tLN:i:%d' % (v, '*', 1000)
+            fp_out.write(line + '\n')
+    for v, w in graph.edges():
+        line = 'L\t%s\t+\t%s\t+\t0M' % (v, w)
+        fp_out.write(line + '\n')
+
+def unitig_nx_to_gfa(fp_out, ug, u_edge_data):
+    # Create a dual graph where ug edges are represented as nodes,
+    # and they are connected via edges which connect the first/last nodes
+    # each unitig.
+    inlets = collections.defaultdict(list)
+    outlets = collections.defaultdict(list)
+    nodes = collections.defaultdict(list)
+    for s, t, v in ug.edges(keys = True):
+        length, score, edges, type_ = u_edge_data[(s, t, v)]
+        node_name = '~'.join([s, v, t])
+        new_node = (s, v, t, length, score, edges, type_)
+        nodes[node_name] = new_node
+        inlets[s].append(node_name)
+        outlets[t].append(node_name)
+
+    for node_name, node_data in nodes.items():
+        s, v, t, length, score, edges, type_ = node_data
+        line = 'S\t%s\t%s\tLN:i:%d' % (node_name, '*', length)
+        fp_out.write(line + '\n')
+
+    edges = {}
+    for s, t, v in ug.edges(keys = True):
+        node_name = '~'.join([s, v, t])
+
+        for w in inlets[t]:
+            print('node_name = {}\n'.format(node_name))
+            print('w = {}\n'.format(w))
+            edges[(node_name, w)] = 'L\t%s\t+\t%s\t+\t0M' % (node_name, w)
+
+        for w in outlets[s]:
+            edges[(w, node_name)] = 'L\t%s\t+\t%s\t+\t0M' % (w, node_name)
+
+    for key, val in edges.items():
+        fp_out.write(val + '\n')
+
 def identify_short_edges_to_remove(ug2, u_edge_data):
     edges_to_remove = set()
     for s, t, v in ug2.edges(keys=True):
@@ -1619,6 +1670,14 @@ def ovlp_to_graph(args):
     print_edge_data(u_edge_data)
     time_identify_spurs_2 += [time.time()]
     log_time('identify_spurs-2', time_short_edges_to_remove)
+
+    time_write_ug = [time.time()]
+    with open('ug.final.gfa', 'w') as fp_out:
+        generic_nx_to_gfa(fp_out, ug, False, None)
+    with open('ug.final.dual.gfa', 'w') as fp_out:
+        unitig_nx_to_gfa(fp_out, ug, u_edge_data)
+    time_write_ug == [time.time()]
+    log_time('write-ug', time_write_ug)
 
     # contig construction from utgs
     time_construct_c_path_from_utgs = [time.time()]

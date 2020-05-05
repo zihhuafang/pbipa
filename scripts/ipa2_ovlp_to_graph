@@ -1817,7 +1817,8 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
 
             LOG.debug('[it = {}, v = {}] len(in_edges) = {}'.format(num_iterations, v, len(in_edges), len(out_edges)))
 
-            # Only focus on non-trivial nodes.
+            # Only focus on nodes which are still non-trivial.
+            # If we reached here, then this node was already resolved at an earlier iteration.
             if len(in_edges) <= 1:
                 LOG.debug('    => Not interesting, len(in_edges) <= 1.')
                 continue
@@ -1853,21 +1854,43 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
                 cg.remove_edge(ss, tt, key=vv)
                 num_removed_edges += 1
 
-            # If the current positon converged, increase the out edge so that
+            # If the current positon converged so that there is exactly one
+            # input and one output edge, increase the out edge so that
             # the next iteration we can improve the next path.
             # Ideally, we should merge the two neighboring contigs, but this is
             # a hack which should hopefully work.
-            LOG.debug('    => len(in_edges) = {}'.format(len(cg.in_edges(v, keys=True))))
-            LOG.debug('    => len(out_edges) = {}'.format(len(cg.out_edges(v, keys=True))))
-            if len(cg.in_edges(v, keys=True)) == 1 and len(cg.out_edges(v, keys=True)):
-                out_edges = list(cg.out_edges(v, keys=True))
-                LOG.debug('    => out_edges = {}'.format(str(out_edges)))
-                ss, tt, vv = out_edges[0]
-                curr_e_data = cg.get_edge_data(ss, tt, key=vv)
-                len_before = curr_e_data['length']
-                curr_e_data['length'] += max_len
+            #
+            # What happens here is the following:
+            #   - For a previously nontrivial node, now we have only
+            #     1 input and 1 output edge left. These edges will
+            #     later be merged into one long contig.
+            #   - Instead of modifying the graph here, we will only
+            #     modify the length of those contigs which should be merged
+            #     so that they have the sum of the lengths of them both.
+            #   - This allows us to propagate the new contig length up or down
+            #     to the next spur in the next iteration.
+            v_in_edges = list(cg.in_edges(v, keys=True))
+            v_out_edges = list(cg.out_edges(v, keys=True))
+            LOG.debug('    => len(in_edges) = {}'.format(len(v_in_edges)))
+            LOG.debug('    => len(out_edges) = {}'.format(len(v_out_edges)))
+            if len(v_in_edges) == 1 and len(v_out_edges) == 1:
+                LOG.debug('    => out_edges = {}'.format(str(v_out_edges)))
+                ss, tt, vv = v_out_edges[0]
+                curr_out_e_data = cg.get_edge_data(ss, tt, key=vv)
+                len_out_before = curr_out_e_data['length']
+
+                LOG.debug('    => in_edges = {}'.format(str(v_in_edges)))
+                ss, tt, vv = v_in_edges[0]
+                curr_in_e_data = cg.get_edge_data(ss, tt, key=vv)
+                len_in_before = curr_in_e_data['length']
+
+                new_len = len_out_before + len_in_before
+
+                curr_out_e_data['length'] = new_len
+                curr_in_e_data['length'] = new_len
+
                 ### DEBUG.
-                LOG.debug('        => Increasing length of the single out edge. Length before = {}. Updated edge: {}'.format(len_before, print_cg_edge_data(ss, tt, vv)))
+                LOG.debug('        => Increasing length of the single out edge. len_out_before = {}, len_in_before = {}, new_len = {}.'.format(len_out_before, len_in_before, new_len))
 
         LOG.debug('num_iterations = {}, num_removed_edges = {}, converged = {}'.format(num_iterations, num_removed_edges, converged))
         num_iterations += 1

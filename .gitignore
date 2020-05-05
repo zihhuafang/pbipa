@@ -2,3 +2,4 @@ temp/
 LOCAL/
 examples/*/RUN*
 .vscode/
+log*

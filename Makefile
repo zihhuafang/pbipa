@@ -5,6 +5,9 @@ export ENABLED_TESTS BUILD_DIR
 .PHONY: all modules
 
 all: modules/pancake/build/src/pancake modules/falconc/src/falconc modules/nighthawk/build/src/nighthawk modules/racon/build-meson/racon modules/pbmm2/build/src/pbmm2 modules/pb-layout/build/src/pblayout
+	${MAKE} symlink
+
+symlink:
 	mkdir -p ${BUILD_DIR}/bin
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pancake/build/src/pancake
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/falconc/src/falconc
@@ -16,6 +19,7 @@ all: modules/pancake/build/src/pancake modules/falconc/src/falconc modules/night
 	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
 	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
 	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_construct_config
+	ls -larth ${BUILD_DIR}
 
 modules/pancake/build/src/pancake: modules/pancake/README.md
 	cd modules/pancake && make all

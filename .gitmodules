@@ -2,22 +2,27 @@
 	path = modules/falconc
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/falconc.git
 	branch = develop
+	ignore = all
 [submodule "modules/racon"]
 	path = modules/racon
 	url = https://github.com/isovic/racon
 	branch = meson2
+	ignore = all
 [submodule "modules/pancake"]
 	path = modules/pancake
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pancake.git
 	branch = develop
+	ignore = all
 [submodule "modules/nighthawk"]
 	path = modules/nighthawk
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/nighthawk.git
 	branch = develop
+	ignore = all
 [submodule "modules/pb-layout"]
 	path = modules/pb-layout
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pb-layout.git
 	branch = develop
+	ignore = all
 [submodule "modules/pbpipeline-resources"]
 	path = modules/pbpipeline-resources
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sl/pbpipeline-resources.git
@@ -27,3 +32,4 @@
 	path = modules/pbmm2
 	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pbmm2.git
 	branch = develop
+	ignore = all

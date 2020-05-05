@@ -1694,23 +1694,26 @@ def ovlp_to_graph(args):
             best_in_dict[v] = v_data["best_in"]
 
     if args.haplospur:
-        time_haplospur_construct_ctg_paths = [time.time()]
-
         # Create a dict for every non-trivial unitig node, where the key is the
         # node and the value is the best input node. This is stored in the
         # string graph in the legacy code.
         # This is used to resolve ambiguities during contig extraction by
         # prefering the best scoring path.
-        # best_in_dict = {}
 
         # Contig construction without extending through ambiguous regions to identify forks.
         # These would be simple contigs.
+        time_haplospur_construct_ctg_paths_1 = [time.time()]
         simple_ctg_paths = construct_c_path_from_utgs(ug, u_edge_data, None, False)
+        time_haplospur_construct_ctg_paths_1 += [time.time()]
+        log_time('haplospur_construct_c_path_from_utgs_1', time_haplospur_construct_ctg_paths_1)
 
         # Create a graph of simple contigs, and find ambiguous connections with short spurs.
         # If these are found, then modify the best_in scores for the adjacent reads to prevent
         # primary contig extraction into the spurs.
+        time_haplospur_find_best_in = [time.time()]
         find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, nxsg, best_in_dict)
+        time_haplospur_find_best_in += [time.time()]
+        log_time('haplospur_find_best_in_for_simple_ctg_paths', time_haplospur_find_best_in)
 
         # for key in sorted(best_in_dict.keys()):
         #     sys.stderr.write('(haplospur) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
@@ -1718,13 +1721,12 @@ def ovlp_to_graph(args):
         # Find the final contig paths using the best_in dict filter.
         # This should prevent small spurs (unmerged haplotig bubbles) in the middle
         # of long contigs to break those contigs.
+        time_haplospur_construct_ctg_paths_2 = [time.time()]
         c_path = construct_c_path_from_utgs(ug, u_edge_data, best_in_dict, True)
-
         # Sorting contig paths by length.
         c_path.sort(key=lambda x: -x[3])
-
-        time_haplospur_construct_ctg_paths += [time.time()]
-        log_time('construct_c_path_from_utgs_haplospur', time_haplospur_construct_ctg_paths)
+        time_haplospur_construct_ctg_paths_2 += [time.time()]
+        log_time('haplospur_construct_c_path_from_utgs_2', time_haplospur_construct_ctg_paths_2)
     else:
         # Create a dict for every non-trivial unitig node, where the key is the
         # node and the value is the best input node. This is stored in the

@@ -432,6 +432,7 @@ function assemble {
 
     # Run the assembly.
     IPA_TIME log.assemble.ovlp_to_graph.memtime \
+    which ipa2_ovlp_to_graph
     ipa2_ovlp_to_graph --depth-cutoff 20000 --width-cutoff 30000 --length-cutoff 15000000 --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     # Example sg_edges_list line: """001039799:E 000333411:E 000333411 17524 20167 17524 99.62 G"""

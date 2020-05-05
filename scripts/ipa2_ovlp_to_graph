@@ -1803,7 +1803,7 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
             nontrivial_nodes.add(v)
 
     for key in sorted(nontrivial_nodes):
-        sys.stderr.write('(before) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+        LOG.debug('(before) v = {} -> best_in = {}'.format(key, best_in_dict[key]))
 
     num_iterations = 0
     converged = False
@@ -1815,22 +1815,20 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
             out_edges = cg.out_edges(v, keys=True)
             edges_to_remove = []
 
-            sys.stderr.write('[it = {}, v = {}] len(in_edges) = {}\n'.format(num_iterations, v, len(in_edges), len(out_edges)))
+            LOG.debug('[it = {}, v = {}] len(in_edges) = {}'.format(num_iterations, v, len(in_edges), len(out_edges)))
 
             # Only focus on non-trivial nodes.
             if len(in_edges) <= 1:
-                sys.stderr.write('    => Not interesting, len(in_edges) <= 1.\n')
+                LOG.debug('    => Not interesting, len(in_edges) <= 1.')
                 continue
+
             # Sort by length in descending order.
             in_edges = sorted(in_edges, key = lambda x: cg.get_edge_data(x[0], x[1], key=x[2])['length'], reverse = True)
+
             # Longest contig entering this node.
             ss, tt, vv = in_edges[0]
             max_e_data = cg.get_edge_data(ss, tt, key=vv)
             max_len = max_e_data['length']
-
-            # ### DEBUG.
-            # for e in in_edges:
-            #     ss, tt, vv = e
 
             # Find other spur contigs which are shorter than the max one and mark
             # them for removal.
@@ -1839,22 +1837,18 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
                 e_data = cg.get_edge_data(ss, tt, key=vv)
 
                 ### DEBUG.
-                sys.stderr.write('    - in_edge: {}\n'.format(print_cg_edge_data(ss, tt, vv)))
+                LOG.debug('    - in_edge: {}'.format(print_cg_edge_data(ss, tt, vv)))
                 pred_nodes_in_sg = get_next_to_last_nodes_from_cg_edge(cg, ss, tt, vv)
-                sys.stderr.write('        => pred_nodes_in_sg: {}\n'.format(str(pred_nodes_in_sg)))
-
-                # ss, vv, tt, p_len, p_score, path, n_edges, is_spur = cg.get_edge_data(ss, tt, key=vv)
-                # sys.stderr.write('    - (s = {}, t = {}, v = {}), p_len = {}, p_score = {}, n_edges = {}, is_spur = {}\n'.format(ss, vv, tt, p_len, p_score, n_edges, is_spur))
-                ###
+                LOG.debug('        => pred_nodes_in_sg: {}'.format(str(pred_nodes_in_sg)))
 
                 if e_data['is_spur'] and e_data['length'] < (max_len / 2.0):
                     edges_to_remove.append(e)
                     converged = False
                     ### DEBUG.
-                    sys.stderr.write('        => To remove.\n')
+                    LOG.debug('        => To remove.')
 
             # Remove the edges from the graph.
-            sys.stderr.write('    => Removing {} edges.\n'.format(len(edges_to_remove)))
+            LOG.debug('    => Removing {} edges.'.format(len(edges_to_remove)))
             for ss, tt, vv in edges_to_remove:
                 cg.remove_edge(ss, tt, key=vv)
                 num_removed_edges += 1
@@ -1863,19 +1857,19 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
             # the next iteration we can improve the next path.
             # Ideally, we should merge the two neighboring contigs, but this is
             # a hack which should hopefully work.
-            sys.stderr.write('    => len(in_edges) = {}\n'.format(len(cg.in_edges(v, keys=True))))
-            sys.stderr.write('    => len(out_edges) = {}\n'.format(len(cg.out_edges(v, keys=True))))
+            LOG.debug('    => len(in_edges) = {}'.format(len(cg.in_edges(v, keys=True))))
+            LOG.debug('    => len(out_edges) = {}'.format(len(cg.out_edges(v, keys=True))))
             if len(cg.in_edges(v, keys=True)) == 1 and len(cg.out_edges(v, keys=True)):
                 out_edges = list(cg.out_edges(v, keys=True))
-                sys.stderr.write('    => out_edges = {}\n'.format(str(out_edges)))
+                LOG.debug('    => out_edges = {}'.format(str(out_edges)))
                 ss, tt, vv = out_edges[0]
                 curr_e_data = cg.get_edge_data(ss, tt, key=vv)
                 len_before = curr_e_data['length']
                 curr_e_data['length'] += max_len
                 ### DEBUG.
-                sys.stderr.write('        => Increasing length of the single out edge. Length before = {}. Updated edge: {}\n'.format(len_before, print_cg_edge_data(ss, tt, vv)))
+                LOG.debug('        => Increasing length of the single out edge. Length before = {}. Updated edge: {}'.format(len_before, print_cg_edge_data(ss, tt, vv)))
 
-        sys.stderr.write('num_iterations = {}, num_removed_edges = {}, converged = {}\n'.format(num_iterations, num_removed_edges, converged))
+        LOG.debug('num_iterations = {}, num_removed_edges = {}, converged = {}'.format(num_iterations, num_removed_edges, converged))
         num_iterations += 1
 
     changed = {}
@@ -1911,12 +1905,13 @@ def find_best_in_for_simple_ctg_paths(simple_ctg_paths, ug, u_edge_data, sg, bes
         if new_best_in != prev_best_in:
             changed[node] = (prev_best_in, new_best_in)
 
-    for key in sorted(nontrivial_nodes):
-        sys.stderr.write('(after) v = {} -> best_in = {}\n'.format(key, best_in_dict[key]))
+    # for key in sorted(nontrivial_nodes):
+    #     LOG.info('(after) v = {} -> best_in = {}'.format(key, best_in_dict[key]))
 
+    LOG.info('Haplospur changed best_in preferences:')
     for key in sorted(changed.keys()):
         vals = changed[key]
-        sys.stderr.write('(changed) v = {}: {} -> {}\n'.format(key, vals[0], vals[1]))
+        LOG.info('(changed) v = {}: {} -> {}'.format(key, vals[0], vals[1]))
 
     return best_in_dict
 

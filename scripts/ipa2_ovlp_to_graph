@@ -1676,7 +1676,7 @@ def ovlp_to_graph(args):
         generic_nx_to_gfa(fp_out, ug, False, None)
     with open('ug.final.dual.gfa', 'w') as fp_out:
         unitig_nx_to_gfa(fp_out, ug, u_edge_data)
-    time_write_ug == [time.time()]
+    time_write_ug += [time.time()]
     log_time('write-ug', time_write_ug)
 
     # contig construction from utgs

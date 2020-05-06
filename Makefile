@@ -22,8 +22,12 @@ symlink: | ${BUILD_DIR}/bin
 	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph.py ipa2_ovlp_to_graph
 	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig.py ipa2_graph_to_contig
 	ls -larth ${BUILD_DIR}
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa.py ipa
+	ls -larth ${BUILD_DIR}/bin
+	cd ${BUILD_DIR}/etc && ln -sf ../../workflow/ipa.snakemake
+	ls -larth ${BUILD_DIR}/etc
 
-${BUILD_DIR}/bin:
+${BUILD_DIR}/bin ${BUILD_DIR}/etc:
 	mkdir -p $@
 
 WHEELHOUSE?="/mnt/software/p/python/wheelhouse/develop/"

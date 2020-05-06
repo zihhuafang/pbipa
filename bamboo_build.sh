@@ -63,6 +63,8 @@ which ipa2_ovlp_to_graph
 which python3
 python3 -c 'import networkx; print(networkx)'
 
+make -C tests
+
 rm -rf examples/ivan-200k-t1/RUN
 make -C examples/ivan-200k-t1
 

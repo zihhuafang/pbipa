@@ -3,3 +3,6 @@ LOCAL/
 examples/*/RUN*
 .vscode/
 log*
+*.pyc
+*.pyo
+.pytest_cache/

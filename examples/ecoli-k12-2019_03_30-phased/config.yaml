@@ -1,0 +1,7 @@
+reads_fn: input.fofn
+genome_size: 0
+coverage: 0
+advanced_options: ""
+polish_run: 1
+phase_run: 1
+nproc: 8

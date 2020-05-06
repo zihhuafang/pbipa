@@ -3,29 +3,62 @@ WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakemake
 CROMWELL?=/pbi/dept/consensus/isovic/tools/cromwell-38.jar
 WF_CROMWELL=${IPA2_WORKSPACE}/modules/pbpipeline-resources/wdl/pb_assembly_hifi.wdl
 LAST_CROMWELL_RUNDIR=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)
+TIMESTAMP=$(shell date +%Y_%m_%d-%H_%M_%S)
+
+NPROC_SNAKE_CONFIG=$(shell python3 -c "import json; d = json.loads(open('config.yaml').read()); print(d['ipa2.nproc'])")
+
+# No need to modify these.
+cluster_S=/bin/bash
+cluster_P=-cwd
+cluster_E=qsub_log/
+cluster_O=qsub_log/
+
+# Change these to your preferences.
+cluster_Q=sequel-farm
+cluster_CPU=-pe smp ${NPROC_SNAKE_CONFIG}
+cluster_JOBS=20
+
+.PHONY: snake qsub wdl link check logenv clean
 
 snake:
-	CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.json --config MAKEDIR=.. -- finish
+	${MAKE} logenv
+	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
+
+qsub:
+	mkdir -p RUN/qsub_log
+	${MAKE} logenv
+	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+
+unlock:
+	mkdir -p RUN/qsub_log
+	${MAKE} logenv
+	CWD=${PWD}/RUN /usr/bin/time snakemake --unlock -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 
 wdl:
-	/usr/bin/time java -jar ${CROMWELL} run --inputs config.wdl.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee
+	${MAKE} logenv
+	/usr/bin/time java -jar ${CROMWELL} run --inputs config.wdl.json ${WF_CROMWELL} 2>&1 | tee log.${TIMESTAMP}.wdl.local.tee
 	${MAKE} link
-	# -/usr/bin/time bash run.sh 2>&1 | tee log.wdl.tee
 
 link:
 	rm -f crumbs
 	ln -sf ${LAST_CROMWELL_RUNDIR} crumbs
 
 check:
-	grep ">" RUN/assemble/p_ctg.fasta | head
+	assembly-stats -t RUN/final/*_ctg.fasta | column -t
 
-verify: snake
-	echo ">ctg.000000F ctg_linear 203334 2689845" > expected.csv
-	echo ">ctg.000000F-001-00 51286 618940" >> expected.csv
-	echo ">ctg.000000F-001-01 51279 518897" >> expected.csv
-	grep ">" RUN/assemble/p_ctg.fasta | cut -d' ' -f1,3-5 > result.csv
-	grep ">" RUN/assemble/a_ctg_all.fasta | cut -d' ' -f1,4-5 >> result.csv
-	diff expected.csv result.csv | wc -l | awk '{ if ($$1 == 0) { print "OK! -> results == expected" } else { print "FAIL -> results != expected." } }'
+logenv:
+	env > log.${TIMESTAMP}.env.txt
+	rm -f log.${TIMESTAMP}.path_to_tools.txt
+	which pancake >> log.${TIMESTAMP}.path_to_tools.txt
+	which pblayout >> log.${TIMESTAMP}.path_to_tools.txt
+	which nighthawk >> log.${TIMESTAMP}.path_to_tools.txt
+	which falconc >> log.${TIMESTAMP}.path_to_tools.txt
+	which ipa2-task >> log.${TIMESTAMP}.path_to_tools.txt
+	pancake --version > log.${TIMESTAMP}.versions.txt
+	pblayout --version >> log.${TIMESTAMP}.versions.txt
+	nighthawk --version >> log.${TIMESTAMP}.versions.txt
+	ipa2-task version 2>/dev/null | tail -n 1 >> log.${TIMESTAMP}.versions.txt
+	falconc --version 2>> tmp.txt
 
 clean:
 	rm -rf RUN

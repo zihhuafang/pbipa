@@ -1,0 +1,1 @@
+module load jdk/1.8.0_71 meson gcc/8.3.0 nim cram boost zlib htslib samtools gtest python/3 git snakemake/5.4.3-ve

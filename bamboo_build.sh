@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -evx
 
 ################
 # DEPENDENCIES #
@@ -55,10 +55,11 @@ export ENABLED_INTERNAL_TESTS="${bamboo_ENABLED_INTERNAL_TESTS}"
 export LDFLAGS="-static-libstdc++ -static-libgcc"
 
 source env.sh
-export PATH=${IPA2_WORKSPACE}/bash/:$PATH
+make symlink
 which ipa2-task
-cd examples/ivan-200k-t1
-make
+which ipa2_ovlp_to_graph
+
+make -C examples/ivan-200k-t1
 
 # if [[ -z ${PREFIX_ARG+x} ]]; then
 #   echo "Not installing anything (branch: ${bamboo_planRepository_branchName}), exiting."

@@ -16,9 +16,9 @@ symlink:
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/racon/build-meson/racon
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pbmm2/build/src/pbmm2
 	cd ${BUILD_DIR}/bin && ln -sf ../../bash/ipa2-task
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_construct_config
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph.py ipa2_ovlp_to_graph
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig.py ipa2_graph_to_contig
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_construct_config.py ipa2_construct_to_contig
 	ls -larth ${BUILD_DIR}
 
 modules/pancake/build/src/pancake: modules/pancake/README.md

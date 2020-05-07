@@ -492,6 +492,76 @@ def reverse_path(p):
     p = p[::-1]
     return [reverse_end(n) for n in p]
 
+def ego_dfs_with_convergence(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_cutoff, stop_on_convergence = True, undirected = False):
+    if len(ug.edges()) == 0 or len(ug.nodes()) == 0:
+        return ug.copy()
+
+    dfs_queue = collections.deque()
+    dfs_queue.append((start_node, 0, 0))
+
+    seen_nodes = set()
+    seen_edges = set()
+
+    width_too_large = False
+    max_depth = 0
+
+    while len(dfs_queue) > 0:
+        v, v_depth, v_pathlen = dfs_queue.popleft()
+        seen_nodes.add(v)
+
+        # The width should be computed with a global max depth if we're using
+        # all of seen_edges in the numerator.
+        max_depth = max(max_depth, v_depth)
+        v_width = 0.0 if max_depth == 0 else float(len(seen_edges)) / float(v_depth)
+
+        if depth_cutoff > 0 and v_depth > depth_cutoff:
+            continue
+        if length_cutoff > 0 and v_pathlen > length_cutoff:
+            continue
+        if width_cutoff > 0 and v_width > width_cutoff:
+            width_too_large = True
+            break
+        if stop_on_convergence and v_depth > 0 and len(dfs_queue) == 0: # 0 because we popped.
+            continue
+
+        # Extend the DFS.
+        for e in ug.out_edges(v, keys = True):
+            if e in seen_edges:
+                continue
+            new_len = v_pathlen + u_edge_data[e][0]
+            new_depth = v_depth + 1
+            if new_depth > depth_cutoff or new_len > length_cutoff:
+                continue
+            seen_edges.add(e)
+            # uu: source, vv: sink, kk: via node (key).
+            uu, vv, kk = e
+            if vv in seen_nodes:
+                continue
+            dfs_queue.append((vv, new_depth, new_len))
+
+        # If the graph is undirected, then traverse the input edges too.
+        if undirected == True:
+            for e in ug.in_edges(v, keys = True):
+                if e in seen_edges:
+                    continue
+                new_len = v_pathlen + u_edge_data[e][0]
+                new_depth = v_depth + 1
+                if new_depth > depth_cutoff or new_len > length_cutoff:
+                    continue
+                seen_edges.add(e)
+                # uu: source, vv: sink, kk: via node (key).
+                uu, vv, kk = e
+                if uu in seen_nodes:
+                    continue
+                dfs_queue.append((uu, new_depth, new_len))
+
+    if width_too_large:
+        seen_nodes = set()
+        seen_edges = set()
+
+    local_graph = ug.edge_subgraph(list(seen_edges))
+
+    return local_graph
 
 def find_bundle(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_cutoff, no_out_edge_printed):
 
@@ -514,8 +584,9 @@ def find_bundle(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_
     # bubbles that are not clean. By removing the ego_graph we actually make it more
     # stringent, and generate bubbles which shouldn't be able to connect to other places internally.
     #
-    local_graph = nx.ego_graph(ug, start_node, depth_cutoff, undirected=False)
-    # local_graph = ug
+    # local_graph = nx.ego_graph(ug, start_node, depth_cutoff, undirected=False)
+    local_graph = ego_dfs_with_convergence(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_cutoff, stop_on_convergence = True, undirected = False)
+#    local_graph = ug
     length_to_node = {start_node: 0}
     score_to_node = {start_node: 0}
 

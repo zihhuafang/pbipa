@@ -1,2 +1,13 @@
-module load smrttools/incremental
-module load jdk/1.8.0_71 meson gcc/8.3.0 nim cram boost zlib htslib samtools gtest git snakemake/5.4.3-ve
+module load python/3
+module load jdk/1.8.0_71
+module load meson
+module load gcc/8.3.0
+module load nim
+module load cram
+module load boost
+module load zlib
+module load htslib
+module load samtools
+module load gtest
+module load git
+module load snakemake/5.4.3-ve

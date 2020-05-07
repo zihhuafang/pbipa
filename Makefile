@@ -2,24 +2,35 @@ BUILD_DIR?=build
 ENABLED_TESTS?=true
 export ENABLED_TESTS BUILD_DIR
 
-.PHONY: all modules
+.PHONY: all modules pip-packages
 
-all: modules/pancake/build/src/pancake modules/falconc/src/falconc modules/nighthawk/build/src/nighthawk modules/racon/build-meson/racon modules/pbmm2/build/src/pbmm2 modules/pb-layout/build/src/pblayout
+all: pip-packages modules/pancake/build/src/pancake modules/falconc/src/falconc modules/nighthawk/build/src/nighthawk modules/racon/build-meson/racon modules/pbmm2/build/src/pbmm2 modules/pb-layout/build/src/pblayout
+	${MAKE} symlink-modules
 	${MAKE} symlink
 
-symlink:
-	mkdir -p ${BUILD_DIR}/bin
+symlink-modules: | ${BUILD_DIR}/bin
+	# Only if we actually *build* these modules!
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pancake/build/src/pancake
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/falconc/src/falconc
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/nighthawk/build/src/nighthawk
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pb-layout/build/src/pblayout
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/racon/build-meson/racon
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pbmm2/build/src/pbmm2
+
+symlink: | ${BUILD_DIR}/bin
 	cd ${BUILD_DIR}/bin && ln -sf ../../bash/ipa2-task
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_construct_config
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph.py ipa2_ovlp_to_graph
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig.py ipa2_graph_to_contig
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_construct_config.py ipa2_construct_to_contig
 	ls -larth ${BUILD_DIR}
+
+${BUILD_DIR}/bin:
+	mkdir -p $@
+
+WHEELHOUSE?="/mnt/software/p/python/wheelhouse/develop/"
+
+pip-packages:
+	pip3 install --user --no-index --find-links=${WHEELHOUSE} networkx pytest
 
 modules/pancake/build/src/pancake: modules/pancake/README.md
 	cd modules/pancake && make all

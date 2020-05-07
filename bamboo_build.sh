@@ -9,7 +9,7 @@ if [[ $USER == bamboo ]]; then
   ## Load modules
   set +vx
   type module >& /dev/null || . /mnt/software/Modules/current/init/bash
-  source module.sh
+  source module.bamboo.sh
   set -vx
 fi
 
@@ -55,10 +55,17 @@ export ENABLED_INTERNAL_TESTS="${bamboo_ENABLED_INTERNAL_TESTS}"
 export LDFLAGS="-static-libstdc++ -static-libgcc"
 
 source env.sh
+module list
 make symlink
+make pip-packages
 which ipa2-task
 which ipa2_ovlp_to_graph
+which python3
+python3 -c 'import networkx; print(networkx)'
 
+make -C tests
+
+rm -rf examples/ivan-200k-t1/RUN
 make -C examples/ivan-200k-t1
 
 # if [[ -z ${PREFIX_ARG+x} ]]; then

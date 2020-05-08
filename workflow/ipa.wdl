@@ -171,10 +171,11 @@ task generate_config {
         params_polish_run="${polish_run}" \
         params_phase_run="${phase_run}" \
         output_fn="generated.config.sh" \
+        sentinel_fn="generated.config" \
             ipa2-task generate_config_from_workflow
     }
     output {
-        File config_sh_fn = "generated.config.sh"
+        File config_sh_fn = "generated.config"
     }
 }
 

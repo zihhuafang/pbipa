@@ -28,7 +28,7 @@ print(config)
 
 rule generate_config:
     output:
-        config = "generate_config/generated.config.sh"
+        config = "generate_config/generated.config"
     input:
         reads_fn = READS_FN,
     params:
@@ -49,9 +49,10 @@ rule generate_config:
         params_genome_size="{params.genome_size}" \
         params_polish_run="{params.polish_run}" \
         params_phase_run="{params.phase_run}" \
-        output_fn="generated.config.sh" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
+        output_fn="generated.config.sh" \
+        sentinel_fn="generated.config" \
             time ipa2-task generate_config_from_workflow
     """
 

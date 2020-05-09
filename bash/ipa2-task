@@ -10,7 +10,13 @@ function version {
 }
 
 function helper_load_config {
-    local config_sh_fn="$1"
+    local config_sh_fn="$1" # the old way
+    if [[ "sh" != "${config_sh_fn##*.}" ]]; then
+        # File-extension is not ".sh", so use the new way.
+        local config_sentinel_fn="$1"
+        #config_sh_fn="${config_sentinel_fn}.sh" # probably correct, but maybe wrong directory
+        config_sh_fn="$(< "${config_sentinel_fn}")"
+    fi
     test ! -z ${config_sh_fn} && test -f ${config_sh_fn} && source ${config_sh_fn}
 }
 
@@ -42,6 +48,8 @@ function generate_config_from_workflow {
     #   params_tmp_dir
     # Outputs:
     #   output_fn
+    #   output_fn .json
+    #   sentinel_fn
 
     # Defaults
     echo "config_autocomp_max_cov=1" > input_opt.cfg
@@ -74,6 +82,11 @@ function generate_config_from_workflow {
 
     # Write the config as JSON as well, for workflows which support it.
     falconc ipa2-construct-config --in-fn=input_opt.cfg --out-fn=${output_fn}.json --out-fmt json
+
+    cat << "EOF" >| README.txt
+The .json version is not actually used. You can modify '${output_fn}' if you do not touch '${sentinel_fn}'."
+EOF
+    echo "$(pwd)/${output_fn}" >| "${sentinel_fn}"
 }
 
 function generate_config_ccs {

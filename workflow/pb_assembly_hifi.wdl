@@ -1,0 +1,1 @@
+../modules/pbpipeline-resources/wdl/pb_assembly_hifi.wdl

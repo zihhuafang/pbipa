@@ -63,10 +63,13 @@ which ipa2_ovlp_to_graph
 which python3
 python3 -c 'import networkx; print(networkx)'
 
+scripts/ipa --version
+
 make -C tests
 
-rm -rf examples/ivan-200k-t1/RUN
-make -C examples/ivan-200k-t1
+make -C examples/wrapper-t1
+#rm -rf examples/ivan-200k-t1/RUN
+#make -C examples/ivan-200k-t1
 
 # if [[ -z ${PREFIX_ARG+x} ]]; then
 #   echo "Not installing anything (branch: ${bamboo_planRepository_branchName}), exiting."

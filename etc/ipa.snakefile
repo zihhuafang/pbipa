@@ -1,0 +1,1 @@
+../workflow/ipa.snakemake

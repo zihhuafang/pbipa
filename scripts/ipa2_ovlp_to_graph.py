@@ -584,9 +584,9 @@ def find_bundle(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_
     # bubbles that are not clean. By removing the ego_graph we actually make it more
     # stringent, and generate bubbles which shouldn't be able to connect to other places internally.
     #
-    # local_graph = nx.ego_graph(ug, start_node, depth_cutoff, undirected=False)
-    local_graph = ego_dfs_with_convergence(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_cutoff, stop_on_convergence = True, undirected = False)
-#    local_graph = ug
+    local_graph = nx.ego_graph(ug, start_node, depth_cutoff, undirected=False)
+    # local_graph = ego_dfs_with_convergence(ug, u_edge_data, start_node, depth_cutoff, width_cutoff, length_cutoff, stop_on_convergence = True, undirected = False)
+    # local_graph = ug
     length_to_node = {start_node: 0}
     score_to_node = {start_node: 0}
 

@@ -20,6 +20,15 @@ LOG_LEVEL = "INFO"
 READS_DB_PREFIX = "reads"
 CONTIGS_DB_PREFIX = "contigs"
 
+try:
+    NPROC_SERIAL = NPROC if not workflow.run_local else NPROC*workflow.cores
+except AttributeError:
+    # Must be using older snakemake version.
+    NPROC_SERIAL = NPROC
+print(f'NPROC:{NPROC}\n')
+print(f'NPROC_SERIAL:{NPROC_SERIAL}\n')
+
+
 if not os.path.isabs(READS_FN):
     READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
 
@@ -71,7 +80,7 @@ rule build_db:
         reads_fn = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -164,7 +173,7 @@ rule ovl_asym_merge:
         in_fns = gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -264,7 +273,7 @@ rule phasing_merge:
         fns = gathered_prepared_phasing_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -306,7 +315,7 @@ rule ovl_filter:
         m4 = rules.phasing_merge.output.gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -345,7 +354,7 @@ rule assemble:
         m4_phasing_merge = rules.phasing_merge.output.gathered_m4,  # Needed for read tracking.
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         ctg_prefix = CTG_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -455,7 +464,7 @@ rule polish_merge:
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """

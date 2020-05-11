@@ -68,9 +68,9 @@ rule build_db:
         config_sh_fn = rules.generate_config.output.config,
     params:
         db_prefix = READS_DB_PREFIX,
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         wd=$(dirname {output.seqdb})
         mkdir -p $wd
@@ -80,7 +80,7 @@ rule build_db:
         input_reads_fn="{input.reads_fn}" \
         params_db_prefix="{params.db_prefix}" \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
             time ipa2-task build_db
@@ -126,10 +126,10 @@ rule ovl_asym_run:
         seeddb_seeds = rules.build_db.output.seeddb_seeds,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
         db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         echo "block_id={wildcards.block_id}"
         wd=$(dirname {output.out_m4})
@@ -144,7 +144,7 @@ rule ovl_asym_run:
         input_seqdb="$rel/{input.seqdb}" \
         params_block_id={wildcards.block_id} \
         params_db_prefix="{params.db_prefix}" \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
@@ -159,10 +159,10 @@ rule ovl_asym_merge:
         in_fns = gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
         db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         wd=$(dirname {output.m4_merged_raw})
         mkdir -p $wd
@@ -175,7 +175,7 @@ rule ovl_asym_merge:
         done >| ./merged.fofn
 
         input_fofn=./merged.fofn \
-        params_num_threads="{params.num_threads}" \
+        params_num_threads={threads} \
         params_db_prefix={params.db_prefix} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
@@ -227,9 +227,9 @@ rule phasing_run:
         seqdb = rules.build_db.output.seqdb,
         seqdb_seqs = rules.build_db.output.seqdb_seqs,
     params:
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         echo "block_id_ph={wildcards.block_id_ph}"
         wd=$(dirname {output.out_keep_m4})
@@ -242,7 +242,7 @@ rule phasing_run:
         output_keep_m4=$(basename {output.out_keep_m4}) \
         output_scraps_m4=$(basename {output.out_scraps_m4}) \
         output_outdir_fn="outdir_fn.txt" \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
@@ -258,9 +258,9 @@ rule phasing_merge:
         fns = gathered_prepared_phasing_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         wd=$(dirname {output.gathered_m4})
         mkdir -p $wd
@@ -285,7 +285,7 @@ rule phasing_merge:
         input_scraps_fofn="./merged.scraps.fofn" \
         input_original_m4="$rel/{input.original_m4}" \
         output_m4="ovl.phased.m4" \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
@@ -300,9 +300,9 @@ rule ovl_filter:
         m4 = rules.phasing_merge.output.gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         wd=$(dirname {output.m4_final})
         mkdir -p $wd
@@ -312,7 +312,7 @@ rule ovl_filter:
         input_m4="$rel/{input.m4}" \
         output_m4_final=$(basename {output.m4_final}) \
         output_m4_chimerfilt=$(basename {output.m4_chimerfilt}) \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
@@ -339,10 +339,10 @@ rule assemble:
         m4_phasing_merge = rules.phasing_merge.output.gathered_m4,  # Needed for read tracking.
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
         ctg_prefix = CTG_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         wd=$(dirname {output.p_ctg_fasta})
         mkdir -p $wd
@@ -354,7 +354,7 @@ rule assemble:
         input_m4_phasing_merge="$rel/{input.m4_phasing_merge}" \
         input_reads="{input.reads_fn}" \
         params_ctg_prefix={params.ctg_prefix} \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
@@ -413,10 +413,10 @@ rule polish_run:
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh = rules.generate_config.output.config, # could be a param if we want to regen
     params:
-        num_threads = NPROC,
         polish_prepare_dn = rules.polish_prepare.output.sharddir,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         echo "shard_id={wildcards.shard_id_polish}"
         wd=$(dirname {output.consensus})
@@ -431,7 +431,7 @@ rule polish_run:
         output_consensus=$(basename {output.consensus}) \
         params_polish_prepare_dn="$rel/{params.polish_prepare_dn}" \
         params_shard_id={wildcards.shard_id_polish} \
-        params_num_threads={params.num_threads} \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
@@ -448,9 +448,9 @@ rule polish_merge:
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
+    threads: NPROC
     shell: """
         wd=$(dirname {output.consensus_merged})
         mkdir -p $wd
@@ -466,7 +466,7 @@ rule polish_merge:
         input_p_ctg_fasta="$rel/{input.p_ctg_fasta}" \
         input_a_ctg_fasta="$rel/{input.a_ctg_fasta}" \
         output_fasta=$(basename {output.consensus_merged}) \
-        params_num_threads="{params.num_threads}" \
+        params_num_threads={threads} \
         params_config_sh_fn="$rel/{input.config_sh_fn}" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \

@@ -6,3 +6,4 @@ log*
 *.pyc
 *.pyo
 .pytest_cache/
+build/

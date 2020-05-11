@@ -1,9 +1,9 @@
 {
-    "ipa2.reads_fn": "input.fofn",
-    "ipa2.genome_size": 0,
-    "ipa2.coverage": 0,
-    "ipa2.advanced_options": "",
-    "ipa2.polish_run": 1,
-    "ipa2.phase_run": 1,
-    "ipa2.nproc": 8
+    "reads_fn": "input.fofn",
+    "genome_size": 0,
+    "coverage": 0,
+    "advanced_options": "",
+    "polish_run": 1,
+    "phase_run": 1,
+    "nproc": 8
 }

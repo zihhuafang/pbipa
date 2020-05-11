@@ -5,13 +5,17 @@ WF_CROMWELL=${IPA2_WORKSPACE}/modules/pbpipeline-resources/wdl/pb_assembly_hifi.
 LAST_CROMWELL_RUNDIR=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)
 TIMESTAMP=$(shell date +%Y_%m_%d-%H_%M_%S)
 
-NPROC_SNAKE_CONFIG=$(shell python3 -c "import json; d = json.loads(open('config.yaml').read()); print(d['ipa2.nproc'])")
+# Input config file.
+CONFIG_FN?="config.yaml"
 
 # No need to modify these.
 cluster_S=/bin/bash
 cluster_P=-cwd
 cluster_E=qsub_log/
 cluster_O=qsub_log/
+
+# Nproc will automatically be parsed from the config file.
+NPROC_SNAKE_CONFIG=$(shell python3 -c "in_fn = '${CONFIG_FN}'; import os, json; ext = os.path.splitext(in_fn)[1].lower(); nproc_l = [int(line.split(':')[1].strip()) for line in open(in_fn) if line.startswith('nproc')] if ext == '.yaml' else [json.loads(open(in_fn).read())['nproc']]; print(nproc_l[0])")
 
 # Change these to your preferences.
 cluster_Q=sequel-farm
@@ -22,17 +26,17 @@ cluster_JOBS=20
 
 snake:
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j 1 --cores -d RUN -s ${WF_SNAKEMAKE} --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
 
 qsub:
 	mkdir -p RUN/qsub_log
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cores --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 
 unlock:
 	mkdir -p RUN/qsub_log
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake --unlock -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile config.yaml -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake --unlock -p -d RUN -s ${WF_SNAKEMAKE} -j ${cluster_JOBS} --cores --cluster "qsub -S ${cluster_S} ${cluster_P} -q ${cluster_Q} ${cluster_CPU} -e ${cluster_E} -o ${cluster_O} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 
 wdl:
 	${MAKE} logenv
@@ -58,7 +62,7 @@ logenv:
 	pblayout --version >> log.${TIMESTAMP}.versions.txt
 	nighthawk --version >> log.${TIMESTAMP}.versions.txt
 	ipa2-task version 2>/dev/null | tail -n 1 >> log.${TIMESTAMP}.versions.txt
-	falconc --version 2>> tmp.txt
+	falconc --version 2>> log.${TIMESTAMP}.versions.txt
 
 clean:
 	rm -rf RUN

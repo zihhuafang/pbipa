@@ -14,17 +14,13 @@ cluster_pwd=-cwd
 cluster_stderr=qsub_log/
 cluster_stdout=qsub_log/
 
-# Nproc will automatically be parsed from the config file.
-# This specifies the number of threads passed down to each tool, as well as the number of CPU for qsub in the cluster mode.
-NPROC_SNAKE_CONFIG=$(shell python3 -c "in_fn = '${CONFIG_FN}'; import os, json; ext = os.path.splitext(in_fn)[1].lower(); nproc_l = [int(line.split(':')[1].strip()) for line in open(in_fn) if line.startswith('nproc')] if ext == '.yaml' else [json.loads(open(in_fn).read())['nproc']]; print(nproc_l[0])")
-
 # Change this for either the local or distributed mode.
 # Controlls the number of jobs that will be run concurrently.
 NJOBS?=1
 
 # Change these to your preferences.
 cluster_queue=sequel-farm
-cluster_cpu=-pe smp ${NPROC_SNAKE_CONFIG}
+cluster_cpu=-pe smp {params.num_threads}
 
 .PHONY: snake qsub wdl link check logenv clean
 

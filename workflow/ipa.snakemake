@@ -27,7 +27,7 @@ shell.prefix("set -vxeu -o pipefail; ")
 print(config)
 
 
-localrules: generate_config, ovl_prepare, finish
+localrules: generate_config, ovl_prepare, final
 
 rule generate_config:
     output:
@@ -35,6 +35,7 @@ rule generate_config:
     input:
         reads_fn = READS_FN,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         genome_size = GENOME_SIZE,
         coverage = COVERAGE,
         advanced_opt_str = ADVANCED_OPTIONS,
@@ -70,8 +71,8 @@ rule build_db:
         reads_fn = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        db_prefix = READS_DB_PREFIX,
         num_threads = NPROC,
+        db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -95,6 +96,7 @@ checkpoint ovl_prepare:
     input:
         seqdb = rules.build_db.output.seqdb,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -194,6 +196,7 @@ checkpoint phasing_prepare:
         m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         config_sh_fn = rules.generate_config.output.config,
     params:
+        num_threads = 1,
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -379,6 +382,7 @@ checkpoint polish_prepare:
         p_ctg_fasta_fai = rules.assemble.output.p_ctg_fa_fai,
         a_ctg_fasta_fai = rules.assemble.output.a_ctg_fa_fai,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -486,6 +490,7 @@ rule final:
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
         polish_run = POLISH_RUN, 

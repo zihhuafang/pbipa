@@ -2,8 +2,8 @@ SNAKE_DIR=${IPA2_WORKSPACE}/workflow/
 WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakemake
 CROMWELL?=/pbi/dept/consensus/isovic/tools/cromwell-38.jar
 WF_CROMWELL=${IPA2_WORKSPACE}/modules/pbpipeline-resources/wdl/pb_assembly_hifi.wdl
-LAST_CROMWELL_RUNDIR=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)
-TIMESTAMP=$(shell date +%Y_%m_%d-%H_%M_%S)
+LAST_CROMWELL_RUNDIR:=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)
+TIMESTAMP:=$(shell date +%Y_%m_%d-%H_%M_%S)
 
 # Input config file.
 CONFIG_FN?="config.yaml"

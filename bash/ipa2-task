@@ -444,8 +444,8 @@ function assemble {
     export PYTHONHASHSEED=2147483647
 
     # Run the assembly.
-    IPA_TIME log.assemble.ovlp_to_graph.memtime \
     which ipa2_ovlp_to_graph
+    IPA_TIME log.assemble.ovlp_to_graph.memtime \
     ipa2_ovlp_to_graph --haplospur --depth-cutoff 200 --width-cutoff 50 --length-cutoff 50000000 --ctg-prefix "${params_ctg_prefix}" --overlap-file preads.m4 >| fc_ovlp_to_graph.log
 
     IPA_TIME log.assemble.graph_to_contig.memtime \

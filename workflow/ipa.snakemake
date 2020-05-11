@@ -26,6 +26,9 @@ if not os.path.isabs(READS_FN):
 shell.prefix("set -vxeu -o pipefail; ")
 print(config)
 
+
+localrules: generate_config, ovl_prepare, finish
+
 rule generate_config:
     output:
         config = "generate_config/generated.config"

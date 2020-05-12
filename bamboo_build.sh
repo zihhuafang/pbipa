@@ -63,6 +63,7 @@ which ipa2_ovlp_to_graph
 which python3
 python3 -c 'import networkx; print(networkx)'
 
+scripts/ipa local --help
 scripts/ipa --version
 
 make -C tests

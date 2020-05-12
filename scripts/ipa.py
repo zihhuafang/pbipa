@@ -1,18 +1,18 @@
 #! /usr/bin/env python3
-import os
-import sys
-import json
 import argparse
+import json
+import logging
 import math
 import multiprocessing
+import os
 import shlex
 import subprocess
-
-import networkx # Not used here, but you will need this later!
+import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKFLOW_PATH = os.path.join('{}'.format(SCRIPT_DIR), '..', 'etc', 'ipa.snakefile')
 NCPUS = multiprocessing.cpu_count()
+LOG = logging.getLogger()
 
 def write_if_changed(fn, content):
     if os.path.exists(fn):
@@ -97,8 +97,8 @@ def run(genome_size, coverage, advanced_opt, no_polish, no_phase,
 We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are available.
 (njobs*nthreads)==({njobs}*{nthreads})=={njobs*nthreads} > {NCPUS}
 """
-        import warnings
-        warnings.warn(msg)
+        LOG.warning(msg)
+
     snakemake = subprocess.check_output(['which', 'snakemake'], encoding='ascii').rstrip()
     words = [
             snakemake,
@@ -156,8 +156,13 @@ def nearest_divisor(v, x):
     raise RuntimeError(f'No divisor found for {v, x}')
 
 def get_version():
+    try:
+        import networkx
+    except ImportError as exc:
+        LOG.exception('Try "pip3 install --user networkx"')
+
     cmd = """
-        echo "ipa (wrapper) version=1.0.0"
+        echo "ipa (wrapper) version=1.0.1"
         IPA_QUIET=1 ipa2-task version
         falconc version
         nighthawk --version
@@ -177,43 +182,55 @@ def parse_args(argv):
 
     description = "Improved Phased Assembly tool for HiFi reads."
     epilog = """
-(Some defaults may vary by machine ncpus.)
-This version runs snakemake in local-mode.
+Try "ipa local --help".
+Or "ipa --version" to validate dependencies.
 """
     parser = argparse.ArgumentParser(description=description,
                                      epilog=epilog,
                                      formatter_class=HelpF)
-    parser.add_argument('input_fns', type=str, nargs='*', # not '?' b/c we want --version to work
-                        help='Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
-    parser.add_argument('--genome-size', type=int, default=0,
-                        help='Genome size, required only for downsampling.')
-    parser.add_argument('--coverage', type=int, default=0,
-                        help='Downsampled coverage, used only for downsampling if genome_size * coverage > 0.')
-    parser.add_argument('--advanced-opt', type=str, default="",
-                        help='Advanced options (quoted).')
-    parser.add_argument('--no-polish', action='store_true',
-                        help='Skip polishing.')
-    parser.add_argument('--no-phase', action='store_true',
-                        help='Skip phasing.')
-    parser.add_argument('--tmp-dir', type=str, default='/tmp',
-                        help='Temporary directory for some disk based operations like sorting.')
-    parser.add_argument('--run-dir', type=str, default='./RUN',
-                        help='Directory in which to run snakemake.')
-    parser.add_argument('--resume', action='store_true',
-                        help='Restart snakemake, but after regenerating the config file. In this case, run-dir can already exist.')
-    parser.add_argument('--nthreads', type=int, default=0,
-                        help='Maximum number of threads to use per job. If 0, then use ncpus/njobs.')
-    parser.add_argument('--njobs', type=int, default=default_njobs,
-                        help='Maximum number of simultaneous jobs, each running up to nthreads.')
-    parser.add_argument('--nshards', type=int, default=default_njobs,
-                        help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
     parser.add_argument('--version', action='version', version=get_version())
-    parser.add_argument('--dry-run', '-n', action='store_true',
+
+    subparsers = parser.add_subparsers(help='sub-command help')
+    lparser = subparsers.add_parser('local',
+            description='This sub-command runs snakemake in local-mode.',
+            epilog='(Some defaults may vary by machine ncpus.)',
+            help='to run snakemake on your local machine')
+    cparser = subparsers.add_parser('cluster',
+            description='This sub-command runs snakemake in cluster-mode, i.e. with job-distribution.',
+            epilog='(NOT YET IMPLEMENTED)',
+            help='to run snakemake on your cluster (not yet implemented)')
+
+    lparser.add_argument('input_fns', type=str, nargs='+',
+                        help='Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
+    lparser.add_argument('--genome-size', type=int, default=0,
+                        help='Genome size, required only for downsampling.')
+    lparser.add_argument('--coverage', type=int, default=0,
+                        help='Downsampled coverage, used only for downsampling if genome_size * coverage > 0.')
+    lparser.add_argument('--advanced-opt', type=str, default="",
+                        help='Advanced options (quoted).')
+    lparser.add_argument('--no-polish', action='store_true',
+                        help='Skip polishing.')
+    lparser.add_argument('--no-phase', action='store_true',
+                        help='Skip phasing.')
+    lparser.add_argument('--tmp-dir', type=str, default='/tmp',
+                        help='Temporary directory for some disk based operations like sorting.')
+    lparser.add_argument('--run-dir', type=str, default='./RUN',
+                        help='Directory in which to run snakemake.')
+    lparser.add_argument('--resume', action='store_true',
+                        help='Restart snakemake, but after regenerating the config file. In this case, run-dir can already exist.')
+    lparser.add_argument('--nthreads', type=int, default=0,
+                        help='Maximum number of threads to use per job. If 0, then use ncpus/njobs.')
+    lparser.add_argument('--njobs', type=int, default=default_njobs,
+                        help='Maximum number of simultaneous jobs, each running up to nthreads.')
+    lparser.add_argument('--nshards', type=int, default=default_njobs,
+                        help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
+    lparser.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
     args = parser.parse_args(argv[1:])
     return args
 
 def main(argv=sys.argv):
+    logging.basicConfig()
     args = parse_args(argv)
     run(**vars(args))
 

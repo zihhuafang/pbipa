@@ -5,11 +5,11 @@ all:
 	${MAKE} resume
 fresh-dry:
 	rm -rf RUN/
-	ipa --dry-run --no-polish --no-phase input.fofn
+	ipa local --dry-run --no-polish --no-phase input.fofn
 fresh:
 	rm -rf RUN/
-	ipa input.fofn
+	ipa local input.fofn
 resume-dry:
-	ipa --dry-run --resume input.fofn
+	ipa local --dry-run --resume input.fofn
 resume:
-	ipa --resume input.fofn
+	ipa local --resume input.fofn

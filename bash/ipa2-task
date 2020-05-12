@@ -67,7 +67,7 @@ function generate_config_from_workflow {
     echo "config_ovl_opt=" >> input_opt.cfg
     echo "config_phase_run=1" >> input_opt.cfg
     echo "config_phasing_opt=" >> input_opt.cfg
-    echo "config_phasing_piles=10000" >> input_opt.cfg
+    echo "config_phasing_split_opt = --split-type noverlaps --limit 3000000" >> input_opt.cfg
     echo "config_polish_run=0" >> input_opt.cfg
     echo "config_seeddb_opt=-k 30 -w 80 --space 1" >> input_opt.cfg
     echo "config_seqdb_opt=--compression 1" >> input_opt.cfg
@@ -120,7 +120,7 @@ function generate_config_ccs {
     echo "config_ovl_filter_opt='${params_ovl_filter_opt}'" >> config.sh
     echo "config_use_seq_ids=${params_use_seq_ids}" >> config.sh
     echo "config_phasing_opt='${params_phasing_opt}'" >> config.sh
-    echo "config_phasing_piles=${params_phasing_piles}" >> config.sh
+    echo "config_phasing_split_opt = --split-type noverlaps --limit 3000000" >> input_opt.cfg
     echo "config_polish_run=${params_polish_run}" >> config.sh
     echo "config_phase_run=${params_phase_run}" >> config.sh
 }
@@ -320,7 +320,7 @@ function phasing_prepare {
     if [[ ${config_phase_run} -eq 1 ]]; then
         # Tag the piles then split them on pile boundary, by pile similarity
         IPA_TIME log.phasing_prepare.nighthawk_split.memtime \
-        nighthawk split --by-similarity --split-type ovlpiles --log-level INFO --limit ${config_phasing_piles} chunk ${input_m4}
+        nighthawk split --by-similarity --log-level INFO ${config_phasing_split_opt} chunk ${input_m4}
 
         local num_blocks=$(ls -1 chunk.*.m4 | wc -l | awk '{ print $1 }')
         for ((block1=0;block1<num_blocks;block1++)); do

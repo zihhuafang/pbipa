@@ -17,13 +17,17 @@ symlink-modules: | ${BUILD_DIR}/bin
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/racon/build-meson/racon
 	cd ${BUILD_DIR}/bin && ln -sf ../../modules/pbmm2/build/src/pbmm2
 
-symlink: | ${BUILD_DIR}/bin
-	cd ${BUILD_DIR}/bin && ln -sf ../../bash/ipa2-task
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph.py ipa2_ovlp_to_graph
-	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig.py ipa2_graph_to_contig
+symlink: | ${BUILD_DIR}/bin ${BUILD_DIR}/etc
 	ls -larth ${BUILD_DIR}
+	cd ${BUILD_DIR}/bin && ln -sf ../../bash/ipa2-task
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_ovlp_to_graph
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa2_graph_to_contig
+	cd ${BUILD_DIR}/bin && ln -sf ../../scripts/ipa.py ipa
+	ls -larth ${BUILD_DIR}/bin
+	cd ${BUILD_DIR}/etc && ln -sf ../../etc/ipa.snakefile
+	ls -larth ${BUILD_DIR}/etc
 
-${BUILD_DIR}/bin:
+${BUILD_DIR}/bin ${BUILD_DIR}/etc:
 	mkdir -p $@
 
 WHEELHOUSE?="/mnt/software/p/python/wheelhouse/develop/"

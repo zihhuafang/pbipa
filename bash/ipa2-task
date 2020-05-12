@@ -10,6 +10,7 @@ function version {
 }
 
 function helper_load_config {
+    set +vx
     local config_sh_fn="$1" # the old way
     if [[ "sh" != "${config_sh_fn##*.}" ]]; then
         # File-extension is not ".sh", so use the new way.
@@ -18,6 +19,7 @@ function helper_load_config {
         config_sh_fn="$(< "${config_sentinel_fn}")"
     fi
     test ! -z ${config_sh_fn} && test -f ${config_sh_fn} && source ${config_sh_fn}
+    set -vx
 }
 
 function which {
@@ -35,7 +37,9 @@ case "${uname_out}" in
     MINGW*)     MACHINE=MinGw;;
     *)          MACHINE="UNKNOWN:${unameOut}"
 esac
-echo "Machine name: '${MACHINE}'"
+if [[ -v $IPA_QUIET ]]; then
+    echo "Machine name: '${MACHINE}'"
+fi
 
 function generate_config_from_workflow {
     # Inputs:
@@ -850,8 +854,10 @@ case $1 in
     ;;
 esac
 
-# For a task, print the environment.
-env | sort >&2
+if [[ ! -v IPA_QUIET ]]; then
+    # For a task, print the environment.
+    env | sort >&2
+fi
 
 case $1 in
   which \
@@ -877,7 +883,7 @@ case $1 in
   |final_collect \
   |version \
 )
-    set -vexu -o pipefail
+    set -eu -o pipefail
     $*
     ;;
 *)

@@ -20,6 +20,15 @@ LOG_LEVEL = "INFO"
 READS_DB_PREFIX = "reads"
 CONTIGS_DB_PREFIX = "contigs"
 
+try:
+    NPROC_SERIAL = NPROC if not workflow.run_local else NPROC*workflow.cores
+except AttributeError:
+    # Must be using older snakemake version.
+    NPROC_SERIAL = NPROC
+print(f'NPROC:{NPROC}\n')
+print(f'NPROC_SERIAL:{NPROC_SERIAL}\n')
+
+
 if not os.path.isabs(READS_FN):
     READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
 
@@ -27,7 +36,7 @@ shell.prefix("set -vxeu -o pipefail; ")
 print(config)
 
 
-localrules: generate_config, ovl_prepare, finish
+localrules: generate_config, ovl_prepare, final
 
 rule generate_config:
     output:
@@ -35,6 +44,7 @@ rule generate_config:
     input:
         reads_fn = READS_FN,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         genome_size = GENOME_SIZE,
         coverage = COVERAGE,
         advanced_opt_str = ADVANCED_OPTIONS,
@@ -70,8 +80,8 @@ rule build_db:
         reads_fn = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
     params:
+        num_threads = NPROC_SERIAL,
         db_prefix = READS_DB_PREFIX,
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -95,6 +105,7 @@ checkpoint ovl_prepare:
     input:
         seqdb = rules.build_db.output.seqdb,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -162,7 +173,7 @@ rule ovl_asym_merge:
         in_fns = gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -194,6 +205,7 @@ checkpoint phasing_prepare:
         m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         config_sh_fn = rules.generate_config.output.config,
     params:
+        num_threads = 1,
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -261,7 +273,7 @@ rule phasing_merge:
         fns = gathered_prepared_phasing_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -303,7 +315,7 @@ rule ovl_filter:
         m4 = rules.phasing_merge.output.gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -342,7 +354,7 @@ rule assemble:
         m4_phasing_merge = rules.phasing_merge.output.gathered_m4,  # Needed for read tracking.
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         ctg_prefix = CTG_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -379,6 +391,7 @@ checkpoint polish_prepare:
         p_ctg_fasta_fai = rules.assemble.output.p_ctg_fa_fai,
         a_ctg_fasta_fai = rules.assemble.output.a_ctg_fa_fai,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -451,7 +464,7 @@ rule polish_merge:
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -486,6 +499,7 @@ rule final:
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
         polish_run = POLISH_RUN, 

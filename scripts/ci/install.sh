@@ -19,3 +19,9 @@ cp -Lf ../ipa2_graph_to_contig ${PREFIX_ARG}/bin/
 cp -Lf ../ipa2_ovlp_to_graph ${PREFIX_ARG}/bin/
 cp -Lf ../../bash/ipa2-task ${PREFIX_ARG}/bin/
 cp -Lf ../../etc/ipa.snakefile ${PREFIX_ARG}/etc/
+
+REV=$(git rev-parse --short HEAD)
+
+perl -pi -e "s/local_commit=.*/local_commit=${REV}/" ${PREFIX_ARG}/bin/ipa2-task
+
+IPA_QUIET=1 ${PREFIX_ARG}/bin/ipa2-task version

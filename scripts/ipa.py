@@ -168,6 +168,7 @@ def get_version():
         nighthawk --version
         pancake --version
         pblayout --version
+        samtools --version
         echo "racon version=$(racon --version)"
         echo "snakemake version=$(snakemake --version)"
 """

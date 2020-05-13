@@ -40,7 +40,7 @@ fi
 
 case "${bamboo_planRepository_branchName}" in
   develop|master)
-    export PREFIX_ARG="/mnt/software/p/pancake/${bamboo_planRepository_branchName}"
+    export PREFIX_ARG="/mnt/software/i/ipa/${bamboo_planRepository_branchName}"
     export BUILD_NUMBER="${bamboo_globalBuildNumber:-0}"
     ;;
   *)

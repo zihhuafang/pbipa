@@ -380,8 +380,13 @@ function phasing_merge {
     helper_load_config ${params_config_sh_fn}
 
     if [[ ${config_phase_run} -eq 1 ]]; then
-        cat ${input_keep_fofn} | xargs cat > all.keep.m4
-        cat ${input_scraps_fofn} | xargs cat > all.scraps.m4
+        local list_keep=$(cat ${input_keep_fofn} | xargs)
+        IPA_TIME log.phasing_merge.cat_keep.memtime \
+        cat ${list_keep} > all.keep.m4
+
+        local list_scraps=$(cat ${input_scraps_fofn} | xargs)
+        IPA_TIME log.phasing_merge.cat_scraps.memtime \
+        cat ${list_scraps} > all.scraps.m4
 
         IPA_TIME log.phasing_merge.nighthawk_symmetrical.memtime \
         nighthawk symmetrical all.scraps.m4 all.keep.m4  > ${output_m4}
@@ -796,6 +801,7 @@ function polish_merge {
         IPA_TIME log.polish_merge.cat.memtime \
         cat ${input_fofn} | xargs cat > ${output_fasta}
     else
+        IPA_TIME log.polish_merge.cat.memtime \
         cat ${input_p_ctg_fasta} ${input_a_ctg_fasta} > ${output_fasta}
     fi
 

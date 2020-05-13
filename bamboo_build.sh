@@ -71,9 +71,9 @@ make -C examples/wrapper-t1
 #rm -rf examples/ivan-200k-t1/RUN
 #make -C examples/ivan-200k-t1
 
-# if [[ -z ${PREFIX_ARG+x} ]]; then
-#   echo "Not installing anything (branch: ${bamboo_planRepository_branchName}), exiting."
-#   exit 0
-# fi
+if [[ -z ${PREFIX_ARG+x} ]]; then
+  echo "Not installing anything (branch: ${bamboo_planRepository_branchName}), exiting."
+  exit 0
+fi
 
-# source scripts/ci/install.sh
+source scripts/ci/install.sh

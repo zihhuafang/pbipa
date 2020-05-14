@@ -30,10 +30,10 @@ def abspath(dn, fn):
     return os.path.normpath(os.path.join(dn, fn))
 
 def run(genome_size, coverage, advanced_opt, no_polish, no_phase,
-        verbose, cluster,
+        verbose, cluster_args, cmd,
         njobs, nthreads, nshards, tmp_dir, run_dir, dry_run, resume, input_fns):
-    # For now, both sub-commands call this, but might separate them someday. ~cd
-    if cluster:
+    # For now, both sub-commands call this, but we might separate them someday. ~cd
+    if cluster_args:
         resume = True # always! since we may need the directory to exist already,
         # e.g. for qsub_log output
 
@@ -116,12 +116,13 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '--reason',
             '--', 'finish',
     ]
-    if cluster:
-        words[1:1] = ['--cluster', cluster, '--latency-wait', '60', '--rerun-incomplete']
+    if cluster_args:
+        words[1:1] = ['--cluster', shlex.quote(cluster_args), '--latency-wait', '60', '--rerun-incomplete']
         if verbose:
             words[1:1] = ['--verbose']
     #cmd = shlex.join(words) # python3.8
     cmd = ' '.join(words)
+    print("\nTo run this yourself:")
     print(cmd, flush=True)
 
     if not verbose:
@@ -212,14 +213,14 @@ Or "ipa --version" to validate dependencies.
     lparser = subparsers.add_parser('local',
             description='This sub-command runs snakemake in local-mode.',
             epilog='(Some defaults may vary by machine ncpus.)',
-            help='to run snakemake on your local machine')
-    cparser = subparsers.add_parser('cluster',
+            help='Run IPA on your local machine.')
+    cparser = subparsers.add_parser('dist',
             description='This sub-command runs snakemake in cluster-mode, i.e. with job-distribution.',
-            epilog='(NOT YET IMPLEMENTED)',
-            help='to run snakemake on your cluster (not yet implemented)')
+            epilog='(The API for this command may evolve.)',
+            help='Distribute IPA jobs to your cluster.')
     parser.set_defaults(cmd='')
     lparser.set_defaults(cmd='local')
-    cparser.set_defaults(cmd='cluster')
+    cparser.set_defaults(cmd='dist')
 
     lparser.add_argument('input_fns', type=str, nargs='+',
                         help='Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
@@ -247,7 +248,7 @@ Or "ipa --version" to validate dependencies.
                         help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
     lparser.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
-    lparser.add_argument('--cluster', type=str, default=None,
+    lparser.add_argument('--cluster-args', type=str, default=None,
                         help=argparse.SUPPRESS)
 
     cparser.add_argument('input_fns', type=str, nargs='+',
@@ -276,7 +277,7 @@ Or "ipa --version" to validate dependencies.
                         help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
     cparser.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
-    cparser.add_argument('--cluster', type=str, default='echo "no defaults yet"',
+    cparser.add_argument('--cluster-args', type=str, default='echo "no defaults yet"',
                         help='Pass this along to snakemake, for convenienly running in a compute cluster.')
 
     args = parser.parse_args(argv[1:])

@@ -30,8 +30,9 @@ def abspath(dn, fn):
     return os.path.normpath(os.path.join(dn, fn))
 
 def run(genome_size, coverage, advanced_opt, no_polish, no_phase,
-        verbose,
+        verbose, cluster,
         njobs, nthreads, nshards, tmp_dir, run_dir, dry_run, resume, input_fns):
+    # For now, both sub-commands call this, but might separate them someday. ~cd
     nthreads = NCPUS // njobs if not nthreads else nthreads
     snakefile_fn = os.path.abspath(WORKFLOW_PATH)
     phase_run_int = 1 if not no_phase else 0
@@ -111,6 +112,8 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '--reason',
             '--', 'finish',
     ]
+    if cluster:
+        words[1:1] = ['--cluster', cluster, '--latency-wait', '60']
     #cmd = shlex.join(words) # python3.8
     cmd = ' '.join(words)
     print(cmd, flush=True)
@@ -235,6 +238,38 @@ Or "ipa --version" to validate dependencies.
                         help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
     lparser.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
+    lparser.add_argument('--cluster', type=str, default=None,
+                        help=argparse.SUPPRESS)
+
+    cparser.add_argument('input_fns', type=str, nargs='+',
+                        help='Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
+    cparser.add_argument('--genome-size', type=int, default=0,
+                        help='Genome size, required only for downsampling.')
+    cparser.add_argument('--coverage', type=int, default=0,
+                        help='Downsampled coverage, used only for downsampling if genome_size * coverage > 0.')
+    cparser.add_argument('--advanced-opt', type=str, default="",
+                        help='Advanced options (quoted).')
+    cparser.add_argument('--no-polish', action='store_true',
+                        help='Skip polishing.')
+    cparser.add_argument('--no-phase', action='store_true',
+                        help='Skip phasing.')
+    cparser.add_argument('--tmp-dir', type=str, default='/tmp',
+                        help='Temporary directory for some disk based operations like sorting.')
+    cparser.add_argument('--run-dir', type=str, default='./RUN',
+                        help='Directory in which to run snakemake.')
+    cparser.add_argument('--resume', action='store_true',
+                        help='Restart snakemake, but after regenerating the config file. In this case, run-dir can already exist.')
+    cparser.add_argument('--nthreads', type=int, default=0,
+                        help='Maximum number of threads to use per job. If 0, then use ncpus/njobs.')
+    cparser.add_argument('--njobs', type=int, default=default_njobs,
+                        help='Maximum number of simultaneous jobs, each running up to nthreads.')
+    cparser.add_argument('--nshards', type=int, default=default_njobs,
+                        help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
+    cparser.add_argument('--dry-run', '-n', action='store_true',
+                        help='Print the snakemake command and do a "dry run" quickly. Very useful!')
+    cparser.add_argument('--cluster', type=str, default='echo "no defaults yet"',
+                        help='Pass this along to snakemake, for convenienly running in a compute cluster.')
+
     args = parser.parse_args(argv[1:])
     return args
 

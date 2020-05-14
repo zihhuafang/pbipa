@@ -153,6 +153,8 @@ function build_db {
 
     helper_load_config ${params_config_sh_fn}
 
+    rm -f ${params_db_prefix}.seqdb
+
     # Create a FOFN of input sequences, even if the input is a
     # plain single sequence file.
     local input_reads_ext=${input_reads_fn##*.}

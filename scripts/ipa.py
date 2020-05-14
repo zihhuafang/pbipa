@@ -30,6 +30,7 @@ def abspath(dn, fn):
     return os.path.normpath(os.path.join(dn, fn))
 
 def run(genome_size, coverage, advanced_opt, no_polish, no_phase,
+        verbose,
         njobs, nthreads, nshards, tmp_dir, run_dir, dry_run, resume, input_fns):
     nthreads = NCPUS // njobs if not nthreads else nthreads
     snakefile_fn = os.path.abspath(WORKFLOW_PATH)
@@ -114,6 +115,11 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
     cmd = ' '.join(words)
     print(cmd, flush=True)
 
+    if not verbose:
+        os.environ['IPA_QUIET'] = '1'
+    else:
+        del os.environ
+
     if dry_run:
         print('Dry-run:')
         words.insert(1, '--dryrun')
@@ -189,6 +195,8 @@ Or "ipa --version" to validate dependencies.
     parser = argparse.ArgumentParser(description=description,
                                      epilog=epilog,
                                      formatter_class=HelpF)
+    parser.add_argument('--verbose', action='store_true',
+            help='Extra logging for each task. (Show full env, e.g.)')
     parser.add_argument('--version', action='version', version=get_version())
 
     subparsers = parser.add_subparsers(help='sub-command help')

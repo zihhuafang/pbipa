@@ -1,4 +1,5 @@
 # vim: ft=python:
+# https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
 import os
 print(f'CWD:{os.getcwd()}\n')
 
@@ -37,6 +38,14 @@ print(config)
 
 
 localrules: generate_config, ovl_prepare, final
+
+P_CTG_FASTA = 'final/final.p_ctg.fasta'
+A_CTG_FASTA = 'final/final.a_ctg.fasta'
+
+rule finish:
+    input:
+        P_CTG_FASTA,
+        A_CTG_FASTA,
 
 rule generate_config:
     output:
@@ -519,8 +528,3 @@ rule final:
         params_polish_run="{params.polish_run}" \
             time ipa2-task final_collect
     """
-
-rule finish:
-    input:
-        rules.final.output.p_ctg_fasta,
-        rules.final.output.a_ctg_fasta,

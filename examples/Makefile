@@ -1,5 +1,5 @@
 SNAKE_DIR=${IPA2_WORKSPACE}/workflow/
-WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakemake
+WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakefile
 CROMWELL?=/pbi/dept/consensus/isovic/tools/cromwell-38.jar
 WF_CROMWELL=${IPA2_WORKSPACE}/modules/pbpipeline-resources/wdl/pb_assembly_hifi.wdl
 LAST_CROMWELL_RUNDIR:=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)
@@ -33,7 +33,7 @@ qsub:
 	${MAKE} logenv
 	#CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${NJOBS} --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 	#rm -rf RUN/
-	/usr/bin/time ipa --verbose cluster --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --njobs ${NJOBS} --nthread 4 --run-dir RUN input.fofn 2>&1 | tee RUN.log.${TIMESTAMP}.snakemake.qsub.tee
+	/usr/bin/time ipa --verbose dist --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --njobs ${NJOBS} --nthread 4 --run-dir RUN input.fofn 2>&1 | tee RUN.log.${TIMESTAMP}.snakemake.qsub.tee
 
 unlock:
 	mkdir -p RUN/qsub_log

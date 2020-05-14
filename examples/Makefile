@@ -16,7 +16,7 @@ cluster_stdout=qsub_log/
 
 # Change this for either the local or distributed mode.
 # Controlls the number of jobs that will be run concurrently.
-NJOBS?=1
+NJOBS?=2
 
 # Change these to your preferences.
 cluster_queue=sequel-farm
@@ -31,7 +31,8 @@ snake:
 qsub:
 	mkdir -p RUN/qsub_log
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${NJOBS} --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+	#CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${NJOBS} --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
+	/usr/bin/time ipa --verbose cluster --njobs ${NJOBS} --nthread 4 --run-dir RUN input.fofn 2>&1 | tee RUN/log.${TIMESTAMP}.snakemake.qsub.tee
 
 unlock:
 	mkdir -p RUN/qsub_log

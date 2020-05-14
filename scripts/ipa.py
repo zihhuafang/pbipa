@@ -217,6 +217,9 @@ Or "ipa --version" to validate dependencies.
             description='This sub-command runs snakemake in cluster-mode, i.e. with job-distribution.',
             epilog='(NOT YET IMPLEMENTED)',
             help='to run snakemake on your cluster (not yet implemented)')
+    parser.set_defaults(cmd='')
+    lparser.set_defaults(cmd='local')
+    cparser.set_defaults(cmd='cluster')
 
     lparser.add_argument('input_fns', type=str, nargs='+',
                         help='Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
@@ -277,6 +280,9 @@ Or "ipa --version" to validate dependencies.
                         help='Pass this along to snakemake, for convenienly running in a compute cluster.')
 
     args = parser.parse_args(argv[1:])
+    if not args.cmd:
+        parser.print_help()
+        sys.exit(2)
     return args
 
 def main(argv=sys.argv):

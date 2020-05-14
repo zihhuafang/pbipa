@@ -117,7 +117,9 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '--', 'finish',
     ]
     if cluster:
-        words[1:1] = ['--cluster', cluster, '--latency-wait', '60']
+        words[1:1] = ['--cluster', cluster, '--latency-wait', '60', '--rerun-incomplete']
+        if verbose:
+            words[1:1] = ['--verbose']
     #cmd = shlex.join(words) # python3.8
     cmd = ' '.join(words)
     print(cmd, flush=True)

@@ -1,1 +1,1 @@
-../workflow/ipa.snakemake
+../workflow/ipa.snakefile

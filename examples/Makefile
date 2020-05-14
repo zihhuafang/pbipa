@@ -1,5 +1,5 @@
 SNAKE_DIR=${IPA2_WORKSPACE}/workflow/
-WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakemake
+WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakefile
 CROMWELL?=/pbi/dept/consensus/isovic/tools/cromwell-38.jar
 WF_CROMWELL=${IPA2_WORKSPACE}/modules/pbpipeline-resources/wdl/pb_assembly_hifi.wdl
 LAST_CROMWELL_RUNDIR:=$(shell find cromwell-executions/ -mindepth 2 -maxdepth 2 | xargs ls -td | head -n 1)

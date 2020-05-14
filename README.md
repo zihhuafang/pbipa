@@ -3,7 +3,7 @@
 ## Description
 
 This repo contains the implementation of the IPA HiFi Genome Assembler.
-It's currently implemented as a Snakemake workflow (`workflow/ipa.snakemake`) and runs the following stages:
+It's currently implemented as a Snakemake workflow (`workflow/ipa.snakefile`) and runs the following stages:
 1. Building the SeqDB and SeedDB from the input reads.
 2. Overlapping using the Pancake overlapper.
 3. Phasing the overlaps using the Nighthawk phasing tool.
@@ -157,7 +157,7 @@ The number of jobs run simultaneously can be set with `cluster_JOBS`.
 ### Snakemake run on a local machine
 The command line listed below can be used to run the Snakemake workflow.
 ```
-WF_SNAKEMAKE=<path_to_the_ipa.snakemake_file>
+WF_SNAKEMAKE=<path_to_the_ipa.snakefile>
 CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.json --config MAKEDIR=.. -- finish
 ```
 

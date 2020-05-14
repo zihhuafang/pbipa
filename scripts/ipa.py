@@ -33,6 +33,10 @@ def run(genome_size, coverage, advanced_opt, no_polish, no_phase,
         verbose, cluster,
         njobs, nthreads, nshards, tmp_dir, run_dir, dry_run, resume, input_fns):
     # For now, both sub-commands call this, but might separate them someday. ~cd
+    if cluster:
+        resume = True # always! since we may need the directory to exist already,
+        # e.g. for qsub_log output
+
     nthreads = NCPUS // njobs if not nthreads else nthreads
     snakefile_fn = os.path.abspath(WORKFLOW_PATH)
     phase_run_int = 1 if not no_phase else 0
@@ -113,7 +117,9 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '--', 'finish',
     ]
     if cluster:
-        words[1:1] = ['--cluster', cluster, '--latency-wait', '60']
+        words[1:1] = ['--cluster', cluster, '--latency-wait', '60', '--rerun-incomplete']
+        if verbose:
+            words[1:1] = ['--verbose']
     #cmd = shlex.join(words) # python3.8
     cmd = ' '.join(words)
     print(cmd, flush=True)
@@ -258,7 +264,7 @@ Or "ipa --version" to validate dependencies.
     cparser.add_argument('--run-dir', type=str, default='./RUN',
                         help='Directory in which to run snakemake.')
     cparser.add_argument('--resume', action='store_true',
-                        help='Restart snakemake, but after regenerating the config file. In this case, run-dir can already exist.')
+                        help=argparse.SUPPRESS)
     cparser.add_argument('--nthreads', type=int, default=0,
                         help='Maximum number of threads to use per job. If 0, then use ncpus/njobs.')
     cparser.add_argument('--njobs', type=int, default=default_njobs,

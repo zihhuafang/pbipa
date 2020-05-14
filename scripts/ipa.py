@@ -278,7 +278,7 @@ Or "ipa --version" to validate dependencies.
     cparser.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
     cparser.add_argument('--cluster-args', type=str, default='echo "no defaults yet"',
-                        help='Pass this along to snakemake, for convenienly running in a compute cluster.')
+                        help='Pass this along to snakemake, for conveniently running in a compute cluster.')
 
     args = parser.parse_args(argv[1:])
     if not args.cmd:

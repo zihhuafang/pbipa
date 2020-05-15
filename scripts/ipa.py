@@ -128,7 +128,7 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
     if not verbose:
         os.environ['IPA_QUIET'] = '1'
     else:
-        del os.environ
+        del os.environ['IPA_QUIET']
 
     if dry_run:
         print('Dry-run:')

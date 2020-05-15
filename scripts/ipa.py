@@ -105,9 +105,9 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
 """
         LOG.warning(msg)
 
-    snakemake = subprocess.check_output(['which', 'snakemake'], encoding='ascii').rstrip()
+    #snakemake = subprocess.check_output(['which', 'snakemake'], encoding='ascii').rstrip()
+    pyexe = sys.executable
     words = [
-            snakemake,
             '-j', str(njobs),
             '-d', run_dn,
             '-p',
@@ -115,10 +115,8 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '--configfile', config_fn,
             '--reason',
     ]
-    if target:
-        words.extend('--', target)
     if cluster_args:
-        words[1:1] = ['--cluster', shlex.quote(cluster_args), '--latency-wait', '60', '--rerun-incomplete']
+        words.extend(['--cluster', shlex.quote(cluster_args), '--latency-wait', '60', '--rerun-incomplete'])
         if verbose:
             words[1:1] = ['--verbose']
     #cmd = shlex.join(words) # python3.8
@@ -131,9 +129,14 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
     else:
         del os.environ['IPA_QUIET']
 
+    if target:
+        words.extend('--', target)
+
+    words[0:0] = [pyexe, '-m', 'snakemake']
+
     if dry_run:
         print('Dry-run:')
-        words.insert(1, '--dryrun')
+        words.insert(3, '--dryrun') # after python -m snakemake
         cmd = ' '.join(words)
 
     # We want to replace the current process, rather than capture output.
@@ -176,8 +179,9 @@ def nearest_divisor(v, x):
 def get_version():
     try:
         import networkx
+        import snakemake
     except ImportError as exc:
-        LOG.exception('Try "pip3 install --user networkx"')
+        LOG.exception('Try "pip3 install --user networkx snakemake"')
 
     cmd = """
         echo "ipa (wrapper) version=1.0.1"
@@ -188,7 +192,7 @@ def get_version():
         pblayout --version
         samtools --version
         echo "racon version=$(racon --version)"
-        echo "snakemake version=$(snakemake --version)"
+        echo "python3 -m snakemake version=$(snakemake --version)"
 """
     output = subprocess.check_output(cmd, shell=True)
     return output.decode('ascii')

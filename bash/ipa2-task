@@ -61,10 +61,10 @@ function generate_config_from_workflow {
     echo "config_coverage=0" >> input_opt.cfg
     echo "config_existing_db_prefix=" >> input_opt.cfg
     echo "config_genome_size=0" >> input_opt.cfg
-    echo "config_ovl_filter_opt=--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4" >> input_opt.cfg
+    echo "config_ovl_filter_opt=--max-diff 80 --max-cov 100 --min-cov 2 --bestn 10 --min-len 4000 --gapFilt --minDepth 4 --idt-stage2 98" >> input_opt.cfg
     echo "config_ovl_min_idt=98" >> input_opt.cfg
     echo "config_ovl_min_len=1000" >> input_opt.cfg
-    echo "config_ovl_opt=" >> input_opt.cfg
+    echo "config_ovl_opt=--one-hit-per-target --min-idt 96" >> input_opt.cfg
     echo "config_phase_run=1" >> input_opt.cfg
     echo "config_phasing_opt=" >> input_opt.cfg
     echo "config_phasing_split_opt = --split-type noverlaps --limit 3000000" >> input_opt.cfg

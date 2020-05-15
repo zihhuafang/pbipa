@@ -26,7 +26,7 @@ cluster_cpu=-pe smp {params.num_threads}
 
 snake:
 	${MAKE} logenv
-	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j ${NJOBS} -d RUN -s ${WF_SNAKEMAKE} --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
+	CWD=${PWD}/RUN /usr/bin/time snakemake -p -j ${NJOBS} -d RUN -s ${WF_SNAKEMAKE} --configfile ${CONFIG_FN} 2>&1 | tee log.${TIMESTAMP}.snakemake.local.tee
 
 qsub:
 	mkdir -p RUN/qsub_log

@@ -116,9 +116,9 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '--reason',
     ]
     if cluster_args:
-        words.extend(['--cluster', shlex.quote(cluster_args), '--latency-wait', '60', '--rerun-incomplete'])
+        words.extend(['--cluster', cluster_args, '--latency-wait', '60', '--rerun-incomplete'])
         if verbose:
-            words[1:1] = ['--verbose']
+            words.extend(['--verbose'])
 
     if not verbose:
         os.environ['IPA_QUIET'] = '1'
@@ -131,21 +131,23 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
     words[0:0] = [pyexe, '-m', 'snakemake']
 
     if dry_run:
-        print('Dry-run:')
         words.insert(3, '--dryrun') # after python -m snakemake
         cmd = ' '.join(words)
 
     #cmd = shlex.join(words) # python3.8
-    cmd = ' '.join(words)
+    cmd = ' '.join(shlex.quote(word) for word in words)
     print("\nTo run this yourself:")
-    print(cmd, flush=True)
+    print(cmd)
+    if dry_run:
+        print("\nStarting snakemake --dryrun ...", flush=True)
+    else:
+        print("\nStarting snakemake ...", flush=True)
 
     # We want to replace the current process, rather than capture output.
     # Because internally we run via a wrapp, the executable is actually python.
     # So we need to do some magic.
     #os.execv('/usr/bin/env', ['python3'] + words)
 
-    cmd = ' '.join(words)
     env = {}
     env.update(os.environ)
     subprocess.run(cmd, shell = True, env = env)

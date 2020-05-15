@@ -192,7 +192,7 @@ def get_version():
         pblayout --version
         samtools --version
         echo "racon version=$(racon --version)"
-        echo "python3 -m snakemake version=$(snakemake --version)"
+        echo "snakemake version=$(python3 -m snakemake --version)"
 """
     output = subprocess.check_output(cmd, shell=True)
     return output.decode('ascii')

@@ -138,11 +138,12 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
     # We want to replace the current process, rather than capture output.
     # Because internally we run via a wrapp, the executable is actually python.
     # So we need to do some magic.
-    os.execv('/usr/bin/env', ['python'] + words)
+    #os.execv('/usr/bin/env', ['python3'] + words)
 
-    #env = {}
-    #env.update(os.environ)
-    #subprocess.run(cmd, shell = True, env = env)
+    cmd = ' '.join(words)
+    env = {}
+    env.update(os.environ)
+    subprocess.run(cmd, shell = True, env = env)
 
 
 def nearest_divisor(v, x):

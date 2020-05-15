@@ -30,7 +30,7 @@ def abspath(dn, fn):
     return os.path.normpath(os.path.join(dn, fn))
 
 def run(genome_size, coverage, advanced_opt, no_polish, no_phase,
-        verbose, cluster_args, cmd,
+        verbose, cluster_args, cmd, target,
         njobs, nthreads, nshards, tmp_dir, run_dir, dry_run, resume, input_fns):
     # For now, both sub-commands call this, but we might separate them someday. ~cd
     if cluster_args:
@@ -114,8 +114,9 @@ We have detected only {NCPUS} CPUs, but you have assumed {njobs*nthreads} are av
             '-s', snakefile_fn,
             '--configfile', config_fn,
             '--reason',
-            '--', 'finish',
     ]
+    if target:
+        words.extend('--', target)
     if cluster_args:
         words[1:1] = ['--cluster', shlex.quote(cluster_args), '--latency-wait', '60', '--rerun-incomplete']
         if verbose:
@@ -210,6 +211,8 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
     parser.add_argument('--verbose', action='store_true',
             help='Extra logging for each task. (Show full env, e.g.)')
     parser.add_argument('--version', action='version', version=get_version())
+    parser.add_argument('--target', type=str, default='',
+                        help=argparse.SUPPRESS)
 
     subparsers = parser.add_subparsers(help='sub-command help')
     lparser = subparsers.add_parser('local',

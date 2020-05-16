@@ -1,7 +1,7 @@
 # vim: ft=python:
 # https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
 import os
-print(f'CWD:{os.getcwd()}\n')
+print(f'CWD:{os.getcwd()}')
 
 CWD = os.getcwd()
 CTG_PREFIX = "ctg."
@@ -26,15 +26,15 @@ try:
 except AttributeError:
     # Must be using older snakemake version.
     NPROC_SERIAL = NPROC
-print(f'NPROC:{NPROC}\n')
-print(f'NPROC_SERIAL:{NPROC_SERIAL}\n')
+print(f'NPROC:{NPROC}')
+print(f'NPROC_SERIAL:{NPROC_SERIAL}')
 
 
 if not os.path.isabs(READS_FN):
     READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
 
 shell.prefix("set -vxeu -o pipefail; ")
-print(config)
+print(f'config:{config}')
 
 
 localrules: generate_config, ovl_prepare, final

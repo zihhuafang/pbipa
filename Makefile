@@ -33,7 +33,7 @@ ${BUILD_DIR}/bin ${BUILD_DIR}/etc:
 WHEELHOUSE?="/mnt/software/p/python/wheelhouse/develop/"
 
 pip-packages:
-	pip3 install --user --no-index --find-links=${WHEELHOUSE} networkx pytest
+	pip3 install --user --no-index --find-links=${WHEELHOUSE} networkx pytest snakemake
 
 modules/pancake/build/src/pancake: modules/pancake/README.md
 	cd modules/pancake && make all

@@ -12,4 +12,3 @@ module load jdk/1.8.0_71
 #module load meson gcc/8.3.0
 #module load boost zlib htslib gtest
 module load git
-module load snakemake/5.4.3-ve

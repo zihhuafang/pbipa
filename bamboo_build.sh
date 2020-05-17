@@ -65,6 +65,7 @@ python3 -c 'import networkx; print(networkx)'
 
 scripts/ipa local --help
 scripts/ipa --version
+scripts/ipa validate
 
 make -C tests
 

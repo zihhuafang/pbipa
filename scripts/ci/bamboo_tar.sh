@@ -73,6 +73,6 @@ cp -fL etc/ipa.snakefile pbipa/etc/
 
 find pbipa/
 
-perl -pi -e "s/local_commit=.*/local_commit=${REV}/" pbipa/bin/ipa2-task
+perl -pi -e "s/COMMIT=.*/COMMIT=' (commit ${REV})/" pbipa/bin/ipa2-task
 
 tar cvfz pbipa.tar.gz pbipa

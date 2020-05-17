@@ -1,12 +1,13 @@
 #!/bin/bash
 
-VERSION="0.1.0"
+# We can substitute COMMIT when we create a tarball.
+COMMIT=""
+VERSION="0.1.1"
 
 THISDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 function version {
-    local local_commit=$(git log -1 --pretty=%h)
-    echo "ipa2-task ${VERSION} (commit ${local_commit})"
+    echo "ipa2-task ${VERSION}${COMMIT}"
 }
 
 function helper_load_config {

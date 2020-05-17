@@ -98,7 +98,7 @@ We have detected only {NCPUS} CPUs, but you have assumed {args.njobs*args.nthrea
 
     print("Validating dependencies ...")
     cmd = """
-        which snakemake
+        which python3
         which ipa2-task
         which falconc
         which nighthawk

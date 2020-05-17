@@ -1,3 +1,6 @@
+PATH:=${PATH}:${CURDIR}/../../scripts:${CURDIR}/../../bash
+export PATH
+
 SNAKE_DIR=${IPA2_WORKSPACE}/workflow/
 WF_SNAKEMAKE=${SNAKE_DIR}/ipa.snakefile
 CROMWELL?=/pbi/dept/consensus/isovic/tools/cromwell-38.jar

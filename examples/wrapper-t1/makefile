@@ -6,8 +6,11 @@ all:
 	${MAKE} fresh
 	${MAKE} resume-dry
 	${MAKE} resume
-fresh-dry:
+print:
 	which ipa
+	rm -rf RUN/
+	ipa local --only-print --verbose -i input.fofn
+fresh-dry:
 	rm -rf RUN/
 	ipa local --dry-run --no-polish --no-phase -i input.fofn
 fresh:

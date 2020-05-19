@@ -117,7 +117,7 @@ def check_dependencies():
         pancake --version
         pblayout --version
         echo "racon version=$(racon --version)"
-        samtools --version
+        samtools --version | head -n 2
 """
     output = subprocess.check_output(cmd, shell=True)
     print(output.decode('ascii'))

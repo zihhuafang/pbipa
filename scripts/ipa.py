@@ -221,6 +221,8 @@ def run(args, config_fn):
     cmd = ' '.join(shlex.quote(word) for word in words)
     print("\nTo run this yourself:")
     print(cmd)
+    if args.only_print:
+        return
     if dry_run:
         print("\nStarting snakemake --dryrun ...", flush=True)
     else:
@@ -313,6 +315,8 @@ def add_common_options(parser, cmd='local'):
                         help='Pass "--unlock" to snakemake, in case snakemake crashed earlier.')
     snake.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
+    snake.add_argument('--only-print', action='store_true',
+                        help='Do not actually run snakemake. Simply print the snakemake command and exit.')
     if cmd == 'local':
         snake.add_argument('--resume', action='store_true',
                             help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist. (Without --resume, run-dir must not already exist.)')

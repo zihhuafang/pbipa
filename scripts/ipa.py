@@ -55,7 +55,7 @@ def generate_fofn(args):
     for fn in abs_input_fns:
         ext = os.path.splitext(fn)[1]
         if ext not in exts:
-            msg = 'Found "{}" ({}). Reads must have one of the following extensions: {}'.format(
+            msg = 'Found extension "{}" ({}). Reads must have one of the following extensions: {}'.format(
                     ext, fn, exts)
             raise RuntimeError(msg)
 
@@ -87,13 +87,13 @@ We have detected only {NCPUS} CPUs, but you have assumed {args.njobs*args.nthrea
     snake_dn = os.path.join(args.run_dir, '.snakemake')
     if os.path.isdir(snake_dn):
         if not args.resume:
-            msg = f'Run-directory "{snake_dn}" exists. Remove and re-try.'
+            msg = f'Run-directory "{snake_dn}" exists. Remove and re-try. (Or use "--resume".)'
             raise RuntimeError(msg)
 
     lock_dn = os.path.join(args.run_dir, '.snakemake', 'locks')
     if os.path.isdir(lock_dn) and os.listdir(lock_dn):
         if not args.unlock:
-            msg = f'Snakemake lock-directory "{lock_dn}" is not empty. Remove and re-try, or use "--unlock".'
+            msg = f'Snakemake lock-directory "{lock_dn}" is not empty. Remove and re-try. (Or use "--unlock".)'
             raise RuntimeError(msg)
 
     check_dependencies()
@@ -117,7 +117,7 @@ def check_dependencies():
         pancake --version
         pblayout --version
         echo "racon version=$(racon --version)"
-        samtools --version
+        samtools --version | head -n 2
 """
     output = subprocess.check_output(cmd, shell=True)
     print(output.decode('ascii'))
@@ -277,8 +277,8 @@ def add_common_options(parser, cmd='local'):
     default_njobs = nearest_divisor(NCPUS, math.log2(NCPUS))
     default_nthreads = NCPUS // default_njobs
 
-    parser.add_argument('input_fn', type=str, nargs='*',
-            help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
+    parser.add_argument('--input-fn', '-i', type=str, action='append', default=[],
+            help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats. Repeat "-i fn1 -i fn2" for multiple inputs, or use a "file-of-filenames", e.g. "-i foo.fofn".')
 
     alg = parser.add_argument_group('Algorithmic options') #, 'These are all you really need to know.')
     alg.add_argument('--no-polish', action='store_true',
@@ -315,7 +315,7 @@ def add_common_options(parser, cmd='local'):
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
     if cmd == 'local':
         snake.add_argument('--resume', action='store_true',
-                            help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist.')
+                            help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist. (Without --resume, run-dir must not already exist.)')
         snake.add_argument('--cluster-args', type=str, default=None,
                             help=argparse.SUPPRESS)
     else:
@@ -333,49 +333,62 @@ def parse_args(argv):
     epilog = """
 Try "ipa local --help".
 Or "ipa validate" to validate dependencies.
-https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
+https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assember
 """
     parser = argparse.ArgumentParser(description=description,
                                      epilog=epilog,
                                      formatter_class=HelpF)
     parser.add_argument('--version', action='version', version=get_version())
+    parser.add_argument('--debug', action='store_true',
+            help=argparse.SUPPRESS)
 
     subparsers = parser.add_subparsers(
             description='One of these must follow the options listed above and may be followed by sub-command specific options.',
             help='sub-command help')
     lparser = subparsers.add_parser('local',
             description='This sub-command runs snakemake in local-mode.',
-            epilog='''
-run-dir must already exist, unless --resume is requested.
-''',
+            epilog='',
             help='Run IPA on your local machine.')
-    cparser = subparsers.add_parser('dist',
+    dparser = subparsers.add_parser('dist',
             description='This sub-command runs snakemake in cluster-mode, i.e. with job-distribution.',
-            epilog='''
-run-dir is created if necessary. ("--resume" is implied.)
-''',
+            epilog='',
             help='Distribute IPA jobs to your cluster.')
     vparser = subparsers.add_parser('validate',
             description='This sub-command shows the versions of dependencies.',
             help='Check dependencies.')
     parser.set_defaults(cmd=None)
     lparser.set_defaults(cmd=run_local)
-    cparser.set_defaults(cmd=run_dist)
+    dparser.set_defaults(cmd=run_dist)
     vparser.set_defaults(cmd=run_validate)
 
     add_common_options(lparser, 'local')
-    add_common_options(cparser, 'dist')
+    add_common_options(dparser, 'dist')
 
     args = parser.parse_args(argv[1:])
     if not args.cmd:
         parser.print_help()
         sys.exit(2)
+    elif run_local == args.cmd:
+        if not args.input_fn:
+            lparser.print_help()
+            sys.exit(2)
+    elif run_dist == args.cmd:
+        if not args.input_fn:
+            dparser.print_help()
+            sys.exit(2)
     return args
 
 def main(argv=sys.argv):
-    logging.basicConfig()
+    logging.basicConfig(format='%(levelname)s: %(message)s')
     args = parse_args(argv)
-    args.cmd(args)
+    if args.debug:
+        args.cmd(args)
+    else:
+        try:
+            args.cmd(args)
+        except Exception as exc:
+            LOG.error(str(exc) + '\nExiting.')
+            sys.exit(1)
 
 if __name__ == '__main__':  # pragma: no cover
     main()

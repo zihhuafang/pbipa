@@ -55,7 +55,7 @@ def generate_fofn(args):
     for fn in abs_input_fns:
         ext = os.path.splitext(fn)[1]
         if ext not in exts:
-            msg = 'Found "{}" ({}). Reads must have one of the following extensions: {}'.format(
+            msg = 'Found extension "{}" ({}). Reads must have one of the following extensions: {}'.format(
                     ext, fn, exts)
             raise RuntimeError(msg)
 
@@ -87,13 +87,13 @@ We have detected only {NCPUS} CPUs, but you have assumed {args.njobs*args.nthrea
     snake_dn = os.path.join(args.run_dir, '.snakemake')
     if os.path.isdir(snake_dn):
         if not args.resume:
-            msg = f'Run-directory "{snake_dn}" exists. Remove and re-try.'
+            msg = f'Run-directory "{snake_dn}" exists. Remove and re-try. (Or use "--resume".)'
             raise RuntimeError(msg)
 
     lock_dn = os.path.join(args.run_dir, '.snakemake', 'locks')
     if os.path.isdir(lock_dn) and os.listdir(lock_dn):
         if not args.unlock:
-            msg = f'Snakemake lock-directory "{lock_dn}" is not empty. Remove and re-try, or use "--unlock".'
+            msg = f'Snakemake lock-directory "{lock_dn}" is not empty. Remove and re-try. (Or use "--unlock".)'
             raise RuntimeError(msg)
 
     check_dependencies()
@@ -339,6 +339,8 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assember
                                      epilog=epilog,
                                      formatter_class=HelpF)
     parser.add_argument('--version', action='version', version=get_version())
+    parser.add_argument('--debug', action='store_true',
+            help=argparse.SUPPRESS)
 
     subparsers = parser.add_subparsers(
             description='One of these must follow the options listed above and may be followed by sub-command specific options.',
@@ -377,9 +379,16 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assember
     return args
 
 def main(argv=sys.argv):
-    logging.basicConfig()
+    logging.basicConfig(format='%(levelname)s: %(message)s')
     args = parse_args(argv)
-    args.cmd(args)
+    if args.debug:
+        args.cmd(args)
+    else:
+        try:
+            args.cmd(args)
+        except Exception as exc:
+            LOG.error(str(exc) + '\nExiting.')
+            sys.exit(1)
 
 if __name__ == '__main__':  # pragma: no cover
     main()

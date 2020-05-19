@@ -21,11 +21,9 @@ LOG_LEVEL = "INFO"
 READS_DB_PREFIX = "reads"
 CONTIGS_DB_PREFIX = "contigs"
 
-try:
-    NPROC_SERIAL = NPROC if not workflow.run_local else NPROC*workflow.cores
-except AttributeError:
-    # Must be using older snakemake version.
-    NPROC_SERIAL = NPROC
+# until we find a way to use NPROC*workflow.cores for a local-only serial task
+NPROC_SERIAL = NPROC
+
 print(f'NPROC:{NPROC}')
 print(f'NPROC_SERIAL:{NPROC_SERIAL}')
 

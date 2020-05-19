@@ -315,7 +315,7 @@ def add_common_options(parser, cmd='local'):
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
     if cmd == 'local':
         snake.add_argument('--resume', action='store_true',
-                            help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist.')
+                            help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist. (Without --resume, run-dir must not already exist.)')
         snake.add_argument('--cluster-args', type=str, default=None,
                             help=argparse.SUPPRESS)
     else:
@@ -345,31 +345,35 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
             help='sub-command help')
     lparser = subparsers.add_parser('local',
             description='This sub-command runs snakemake in local-mode.',
-            epilog='''
-run-dir must already exist, unless --resume is requested.
-''',
+            epilog='',
             help='Run IPA on your local machine.')
-    cparser = subparsers.add_parser('dist',
+    dparser = subparsers.add_parser('dist',
             description='This sub-command runs snakemake in cluster-mode, i.e. with job-distribution.',
-            epilog='''
-run-dir is created if necessary. ("--resume" is implied.)
-''',
+            epilog='',
             help='Distribute IPA jobs to your cluster.')
     vparser = subparsers.add_parser('validate',
             description='This sub-command shows the versions of dependencies.',
             help='Check dependencies.')
     parser.set_defaults(cmd=None)
     lparser.set_defaults(cmd=run_local)
-    cparser.set_defaults(cmd=run_dist)
+    dparser.set_defaults(cmd=run_dist)
     vparser.set_defaults(cmd=run_validate)
 
     add_common_options(lparser, 'local')
-    add_common_options(cparser, 'dist')
+    add_common_options(dparser, 'dist')
 
     args = parser.parse_args(argv[1:])
     if not args.cmd:
         parser.print_help()
         sys.exit(2)
+    elif run_local == args.cmd:
+        if not args.input_fn:
+            lparser.print_help()
+            sys.exit(2)
+    elif run_dist == args.cmd:
+        if not args.input_fn:
+            dparser.print_help()
+            sys.exit(2)
     return args
 
 def main(argv=sys.argv):

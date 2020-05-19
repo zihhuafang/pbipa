@@ -17,3 +17,5 @@ resume-dry:
 	ipa -i input.fofn --dry-run  local --resume
 resume:
 	ipa -i input.fofn --verbose  local --resume
+validate:
+	ipa validate

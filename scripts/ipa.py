@@ -96,7 +96,10 @@ We have detected only {NCPUS} CPUs, but you have assumed {args.njobs*args.nthrea
             msg = f'Snakemake lock-directory "{lock_dn}" is not empty. Remove and re-try, or use "--unlock".'
             raise RuntimeError(msg)
 
-    print("Validating dependencies ...")
+    check_dependencies()
+
+def check_dependencies():
+    print("Checking dependencies ...")
     cmd = """
         which python3
         which ipa2-task
@@ -153,18 +156,22 @@ def write_config(args):
     return config_fn
 
 def run_validate(args):
-    normalize_args(args)
-    validate(args)
+    check_dependencies()
 
 def run_local(args):
-    run_validate(args)
+    args.cluster_args = None # ignored in local-mode
+
+    normalize_args(args)
+    validate(args)
     generate_fofn(args)
     config_fn = write_config(args)
     run(args, config_fn)
 
 def run_dist(args):
     args.resume = True # always on for dist-mode
-    run_validate(args)
+
+    normalize_args(args)
+    validate(args)
     generate_fofn(args)
     config_fn = write_config(args)
     run(args, config_fn)
@@ -263,31 +270,17 @@ def get_version():
         LOG.exception('Try "pip3 install --user networkx snakemake"')
 
     return """
-        echo "ipa (wrapper) version=1.0.1"
+ipa (wrapper) version=1.0.2
 """
-class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
-   pass
 
-def parse_args(argv):
+def add_common_options(parser, cmd='local'):
     default_njobs = nearest_divisor(NCPUS, math.log2(NCPUS))
     default_nthreads = NCPUS // default_njobs
 
-    description = "Improved Phased Assembly tool for HiFi reads."
-    epilog = """
-Try "ipa local --help".
-Or "ipa validate" to validate dependencies.
-https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
-"""
-    parser = argparse.ArgumentParser(description=description,
-                                     epilog=epilog,
-                                     formatter_class=HelpF)
-    parser.add_argument('--version', action='version', version=get_version())
+    parser.add_argument('input_fn', type=str, nargs='*',
+            help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
 
     alg = parser.add_argument_group('Algorithmic options') #, 'These are all you really need to know.')
-    alg.add_argument('--input-fn', '-i', type=str, action='append', default=[],
-            # required=True, # if required, then "ipa" w/out args would fail.
-            # Non-coders thinks "-h" is to much to type.
-            help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats. Repeat -i fn1 -i fn2 ... for multiple inputs.')
     alg.add_argument('--no-polish', action='store_true',
             help='Skip polishing.')
     alg.add_argument('--no-phase', action='store_true',
@@ -320,8 +313,33 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
                         help='Pass "--unlock" to snakemake, in case snakemake crashed earlier.')
     snake.add_argument('--dry-run', '-n', action='store_true',
                         help='Print the snakemake command and do a "dry run" quickly. Very useful!')
+    if cmd == 'local':
+        snake.add_argument('--resume', action='store_true',
+                            help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist.')
+        snake.add_argument('--cluster-args', type=str, default=None,
+                            help=argparse.SUPPRESS)
+    else:
+        assert cmd == 'dist'
+        snake.add_argument('--resume', action='store_true',
+                            help=argparse.SUPPRESS)
+        snake.add_argument('--cluster-args', type=str, default='echo "no defaults yet"',
+                            help='(Required) Pass this along to snakemake, for conveniently running in a compute cluster.')
 
-    '(Some defaults may vary by machine ncpus.)'
+class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
+   pass
+
+def parse_args(argv):
+    description = "Improved Phased Assembly tool for HiFi reads."
+    epilog = """
+Try "ipa local --help".
+Or "ipa validate" to validate dependencies.
+https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
+"""
+    parser = argparse.ArgumentParser(description=description,
+                                     epilog=epilog,
+                                     formatter_class=HelpF)
+    parser.add_argument('--version', action='version', version=get_version())
+
     subparsers = parser.add_subparsers(
             description='One of these must follow the options listed above and may be followed by sub-command specific options.',
             help='sub-command help')
@@ -338,22 +356,15 @@ run-dir is created if necessary. ("--resume" is implied.)
 ''',
             help='Distribute IPA jobs to your cluster.')
     vparser = subparsers.add_parser('validate',
-            description='(NOT YET IMPLEMENTED.) This sub-command shows the versions of dependencies.',
+            description='This sub-command shows the versions of dependencies.',
             help='Check dependencies.')
     parser.set_defaults(cmd=None)
     lparser.set_defaults(cmd=run_local)
     cparser.set_defaults(cmd=run_dist)
     vparser.set_defaults(cmd=run_validate)
 
-    lparser.add_argument('--resume', action='store_true',
-                        help='Restart snakemake, but after regenerating the config file. In this case, run-dir may already exist.')
-    lparser.add_argument('--cluster-args', type=str, default=None,
-                        help=argparse.SUPPRESS)
-
-    cparser.add_argument('--resume', action='store_true',
-                        help=argparse.SUPPRESS)
-    cparser.add_argument('--cluster-args', type=str, default='echo "no defaults yet"',
-                        help='Pass this along to snakemake, for conveniently running in a compute cluster.')
+    add_common_options(lparser, 'local')
+    add_common_options(cparser, 'dist')
 
     args = parser.parse_args(argv[1:])
     if not args.cmd:

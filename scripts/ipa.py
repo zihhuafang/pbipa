@@ -333,7 +333,7 @@ def parse_args(argv):
     epilog = """
 Try "ipa local --help".
 Or "ipa validate" to validate dependencies.
-https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
+https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assember
 """
     parser = argparse.ArgumentParser(description=description,
                                      epilog=epilog,

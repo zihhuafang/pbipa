@@ -72,6 +72,7 @@ function generate_config_from_workflow {
     echo "config_polish_run=0" >> input_opt.cfg
     echo "config_seeddb_opt=-k 30 -w 80 --space 1" >> input_opt.cfg
     echo "config_seqdb_opt=--compression 1" >> input_opt.cfg
+    echo "config_use_hpc=0" >> input_opt.cfg
     echo "config_use_seq_ids=1" >> input_opt.cfg
     echo "" >> input_opt.cfg
 
@@ -202,8 +203,12 @@ function build_db {
         fi
 
         # Compute the seeds from the final seqdb.
+        local opt_use_hpc=""
+        if [[ ${config_use_hpc} -eq 1 ]]; then
+            opt_use_hpc="--use-hpc"
+        fi
         IPA_TIME log.build_db.seeddb.memtime \
-        pancake seeddb --log-level ${params_log_level} --num-threads ${params_num_threads} ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
+        pancake seeddb --log-level ${params_log_level} --num-threads ${params_num_threads} ${opt_use_hpc} ${config_seeddb_opt} ${params_db_prefix}.seqdb ${params_db_prefix}
 
     else
         # If the user specified a DB prefix, just symlink it.
@@ -270,8 +275,13 @@ function ovl_asym_run {
         opt_use_seq_ids="--write-ids"
     fi
 
+    local opt_use_hpc=""
+    if [[ ${config_use_hpc} -eq 1 ]]; then
+        opt_use_hpc="--use-hpc"
+    fi
+
     IPA_TIME log.ovl_asym_run.pancake.memtime \
-    pancake ovl-hifi --log-level ${params_log_level} --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${config_ovl_opt} ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
+    pancake ovl-hifi --log-level ${params_log_level} --num-threads ${params_num_threads} --skip-sym --write-rev ${opt_use_seq_ids} ${opt_use_hpc} ${config_ovl_opt} ${local_db_prefix} ${local_db_prefix} ${params_block_id} ${params_block_id} 0 > ovl.m4
 
     IPA_TIME log.ovl_asym_run.sort.memtime \
     sort --temporary-directory=${params_tmp_dir} -k1 ovl.m4 > ovl.sorted.m4
@@ -468,10 +478,14 @@ function assemble {
     if [[ ${config_use_seq_ids} -eq 1 ]]; then
         opt_use_seq_ids="--use-seq-ids"
     fi
+    local opt_use_hpc=""
+    if [[ ${config_use_hpc} -eq 1 ]]; then
+        opt_use_hpc="--use-hpc --realign"
+    fi
     IPA_TIME log.assemble.tp2seq_p_ctg.memtime \
-    pblayout tp2seq --log-level ${params_log_level} ${opt_use_seq_ids} ${input_seqdb} p_ctg_tiling_path p_ctg.fasta
+    pblayout tp2seq --log-level ${params_log_level} ${opt_use_seq_ids} ${opt_use_hpc} ${input_seqdb} p_ctg_tiling_path p_ctg.fasta
     IPA_TIME log.assemble.tp2seq_a_ctg_all.memtime \
-    pblayout tp2seq --log-level ${params_log_level} ${opt_use_seq_ids} ${input_seqdb} a_ctg_all_tiling_path a_ctg_all.fasta
+    pblayout tp2seq --log-level ${params_log_level} ${opt_use_seq_ids} ${opt_use_hpc} ${input_seqdb} a_ctg_all_tiling_path a_ctg_all.fasta
 
     # Implicit outputs: p_ctg.fasta, a_ctg_all.fasta, p_ctg_tiling_path, a_ctg_all_tiling_path
 

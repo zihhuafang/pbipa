@@ -277,8 +277,8 @@ def add_common_options(parser, cmd='local'):
     default_njobs = nearest_divisor(NCPUS, math.log2(NCPUS))
     default_nthreads = NCPUS // default_njobs
 
-    parser.add_argument('input_fn', type=str, nargs='*',
-            help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats.')
+    parser.add_argument('--input-fn', '-i', type=str, action='append', default=[],
+            help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats. Repeat "-i fn1 -i fn2" for multiple inputs, or use a "file-of-filenames", e.g. "-i foo.fofn".')
 
     alg = parser.add_argument_group('Algorithmic options') #, 'These are all you really need to know.')
     alg.add_argument('--no-polish', action='store_true',

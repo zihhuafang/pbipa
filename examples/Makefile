@@ -36,12 +36,12 @@ snake:
 local:
 	#${MAKE} logenv
 	which ipa
-	/usr/bin/time ipa local --njobs ${NJOBS} --nthreads 4 --run-dir RUN --verbose --unlock --resume input.fofn
+	/usr/bin/time ipa local --njobs ${NJOBS} --nthreads 4 --run-dir RUN --verbose --unlock --resume -i input.fofn
 
 dist:
 	mkdir -p RUN/qsub_log
 	${MAKE} logenv
-	/usr/bin/time ipa dist --njobs ${NJOBS} --nthreads 4 --run-dir RUN --verbose --unlock --cluster "${CLUSTER_ARGS}" input.fofn 2>&1 | tee RUN.log.${TIMESTAMP}.snakemake.qsub.tee
+	/usr/bin/time ipa dist --njobs ${NJOBS} --nthreads 4 --run-dir RUN --verbose --unlock --cluster "${CLUSTER_ARGS}" -i input.fofn 2>&1 | tee RUN.log.${TIMESTAMP}.snakemake.qsub.tee
 
 qsub:
 	mkdir -p RUN/qsub_log

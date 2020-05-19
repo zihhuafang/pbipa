@@ -9,13 +9,13 @@ all:
 fresh-dry:
 	which ipa
 	rm -rf RUN/
-	ipa local --dry-run --no-polish --no-phase input.fofn
+	ipa local --dry-run --no-polish --no-phase -i input.fofn
 fresh:
 	rm -rf RUN/
-	ipa local input.fofn
+	ipa local -i input.fofn
 resume-dry:
-	ipa local --dry-run --resume input.fofn
+	ipa local --dry-run --resume -i input.fofn
 resume:
-	ipa local --verbose --resume input.fofn
+	ipa local --verbose --resume -i input.fofn
 validate:
 	ipa validate

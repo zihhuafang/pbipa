@@ -1,6 +1,7 @@
 # vim: ft=python:
+# https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
 import os
-print(f'CWD:{os.getcwd()}\n')
+print(f'CWD:{os.getcwd()}')
 
 CWD = os.getcwd()
 CTG_PREFIX = "ctg."
@@ -20,18 +21,39 @@ LOG_LEVEL = "INFO"
 READS_DB_PREFIX = "reads"
 CONTIGS_DB_PREFIX = "contigs"
 
+try:
+    NPROC_SERIAL = NPROC if not workflow.run_local else NPROC*workflow.cores
+except AttributeError:
+    # Must be using older snakemake version.
+    NPROC_SERIAL = NPROC
+print(f'NPROC:{NPROC}')
+print(f'NPROC_SERIAL:{NPROC_SERIAL}')
+
+
 if not os.path.isabs(READS_FN):
     READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
 
 shell.prefix("set -vxeu -o pipefail; ")
-print(config)
+print(f'config:{config}')
+
+
+localrules: generate_config, ovl_prepare, final
+
+P_CTG_FASTA = 'final/final.p_ctg.fasta'
+A_CTG_FASTA = 'final/final.a_ctg.fasta'
+
+rule finish:
+    input:
+        P_CTG_FASTA,
+        A_CTG_FASTA,
 
 rule generate_config:
     output:
-        config = "generate_config/generated.config.sh"
+        config = "generate_config/generated.config"
     input:
         reads_fn = READS_FN,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         genome_size = GENOME_SIZE,
         coverage = COVERAGE,
         advanced_opt_str = ADVANCED_OPTIONS,
@@ -49,25 +71,26 @@ rule generate_config:
         params_genome_size="{params.genome_size}" \
         params_polish_run="{params.polish_run}" \
         params_phase_run="{params.phase_run}" \
-        output_fn="generated.config.sh" \
         params_log_level="{params.log_level}" \
         params_tmp_dir="{params.tmp_dir}" \
+        output_fn="generated.config.sh" \
+        sentinel_fn="generated.config" \
             time ipa2-task generate_config_from_workflow
     """
 
 rule build_db:
     output:
-        seqdb = protected("build_db/reads.seqdb"),
-        seeddb = protected("build_db/reads.seeddb"),
-        seqdb_seqs = protected("build_db/reads.seqdb.0.seq"),
-        seeddb_seeds = protected("build_db/reads.seeddb.0.seeds"),
-        input_fofn = protected("build_db/input.fofn"),
+        seqdb = "build_db/reads.seqdb",
+        seeddb = "build_db/reads.seeddb",
+        seqdb_seqs = "build_db/reads.seqdb.0.seq",
+        seeddb_seeds = "build_db/reads.seeddb.0.seeds",
+        input_fofn = "build_db/input.fofn",
     input:
         reads_fn = READS_FN,
         config_sh_fn = rules.generate_config.output.config,
     params:
+        num_threads = NPROC_SERIAL,
         db_prefix = READS_DB_PREFIX,
-        num_threads = NPROC,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -91,6 +114,7 @@ checkpoint ovl_prepare:
     input:
         seqdb = rules.build_db.output.seqdb,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -158,7 +182,7 @@ rule ovl_asym_merge:
         in_fns = gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         db_prefix = READS_DB_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -190,6 +214,7 @@ checkpoint phasing_prepare:
         m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         config_sh_fn = rules.generate_config.output.config,
     params:
+        num_threads = 1,
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -251,13 +276,13 @@ rule phasing_run:
 
 rule phasing_merge:
     output:
-        gathered_m4 = protected("phasing_merge/ovl.phased.m4"),
+        gathered_m4 = "phasing_merge/ovl.phased.m4",
     input:
         original_m4 = rules.ovl_asym_merge.output.m4_filtered_nonlocal,
         fns = gathered_prepared_phasing_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -293,13 +318,13 @@ rule phasing_merge:
 
 rule ovl_filter:
     output:
-        m4_final = protected("ovl_filter/ovl.final.m4"),
+        m4_final = "ovl_filter/ovl.final.m4",
         m4_chimerfilt = "ovl_filter/ovl.chimerfilt.m4",
     input:
         m4 = rules.phasing_merge.output.gathered_m4,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -320,12 +345,12 @@ rule ovl_filter:
 
 rule assemble:
     output:
-        p_ctg_fasta = protected("assemble/p_ctg.fasta"),
-        a_ctg_fasta = protected("assemble/a_ctg.fasta"),
+        p_ctg_fasta = "assemble/p_ctg.fasta",
+        a_ctg_fasta = "assemble/a_ctg.fasta",
         p_ctg_tiling_path = "assemble/p_ctg_tiling_path",
         a_ctg_tiling_path = "assemble/a_ctg_tiling_path",
-        p_ctg_fa_fai = protected("assemble/p_ctg.fasta.fai"),
-        a_ctg_fa_fai = protected("assemble/a_ctg.fasta.fai"),
+        p_ctg_fa_fai = "assemble/p_ctg.fasta.fai",
+        a_ctg_fa_fai = "assemble/a_ctg.fasta.fai",
         read_to_contig = "assemble/read_to_contig.csv",
 #        asm_gfa = "assemble/asm.gfa",
 #        sg_gfa = "assemble/sg.gfa",
@@ -338,7 +363,7 @@ rule assemble:
         m4_phasing_merge = rules.phasing_merge.output.gathered_m4,  # Needed for read tracking.
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         ctg_prefix = CTG_PREFIX,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -375,6 +400,7 @@ checkpoint polish_prepare:
         p_ctg_fasta_fai = rules.assemble.output.p_ctg_fa_fai,
         a_ctg_fasta_fai = rules.assemble.output.a_ctg_fa_fai,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         max_nchunks = MAX_NCHUNKS,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
@@ -439,15 +465,15 @@ rule polish_run:
 
 rule polish_merge:
     output:
-        consensus_merged = protected("polish_merge/assembly.merged.fasta"),
-        consensus_merged_fai = protected("polish_merge/assembly.merged.fasta.fai"),
+        consensus_merged = "polish_merge/assembly.merged.fasta",
+        consensus_merged_fai = "polish_merge/assembly.merged.fasta.fai",
     input:
         fns = gathered_polish,
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
         config_sh_fn = rules.generate_config.output.config,
     params:
-        num_threads = NPROC,
+        num_threads = NPROC_SERIAL,
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
     shell: """
@@ -474,14 +500,15 @@ rule polish_merge:
 
 rule final:
     output:
-        p_ctg_fasta = protected("final/final.p_ctg.fasta"),
-        a_ctg_fasta = protected("final/final.a_ctg.fasta"),
+        p_ctg_fasta = "final/final.p_ctg.fasta",
+        a_ctg_fasta = "final/final.a_ctg.fasta",
     input:
         assembly_merged_fasta = rules.polish_merge.output.consensus_merged,
         assembly_merged_fai = rules.polish_merge.output.consensus_merged_fai,
         p_ctg_fasta = rules.assemble.output.p_ctg_fasta,
         a_ctg_fasta = rules.assemble.output.a_ctg_fasta,
     params:
+        num_threads = 1, # not needed for localrule, but does not hurt
         log_level = LOG_LEVEL,
         tmp_dir = TMP_DIR,
         polish_run = POLISH_RUN, 
@@ -501,8 +528,3 @@ rule final:
         params_polish_run="{params.polish_run}" \
             time ipa2-task final_collect
     """
-
-rule finish:
-    input:
-        rules.final.output.p_ctg_fasta,
-        rules.final.output.a_ctg_fasta,

@@ -1,7 +1,7 @@
 reads_fn: "input.fofn"
 genome_size: 0
 coverage: 0
-advanced_options: ""
+advanced_options: "config_ovl_min_idt = 98; config_ovl_filter_opt = --max-diff 80 --max-cov 100 --min-cov 2 --bestn 10 --min-len 4000 --gapFilt --minDepth 4 --idt-stage2 98 ; config_seeddb_opt = -k 30 -w 80 --space 1 ; config_phasing_piles = 50000; config_ovl_opt = --one-hit-per-target --min-map-len 2000 --min-idt 96"
 polish_run: 1
-phase_run: 0
-nproc: 16
+phase_run: 1
+nproc: 24

@@ -40,11 +40,29 @@ mkdir -p ${PREFIX_ARG} ${CURRENT_BUILD_DIR}
 
 #(cd modules/falconc/ && make)
 
-(mkdir -p modules/pancake/build-meson && cd modules/pancake/build-meson && (meson --default-library static --libdir lib --unity off --buildtype=release -Dc_args=-O3 -Dtests=true -Dtests-internal=false --prefix ${PREFIX_ARG} || meson --reconfigure) && ninja install -v)
+cd modules/pancake
+meson subprojects update
+mkdir -p build-meson
+cd build-meson
+(meson --default-library static --libdir lib --unity off --buildtype=release -Dc_args=-O3 -Dtests=true -Dtests-internal=false --prefix ${PREFIX_ARG} || meson --reconfigure)
+ninja install -v
+cd ../../..
 
-(mkdir -p modules/nighthawk/build-meson && cd modules/nighthawk/build-meson && (meson --default-library static --buildtype=release -Dc_args=-O3 --prefix ${PREFIX_ARG} || meson --reconfigure) && ninja install -v)
+cd modules/nighthawk
+meson subprojects update
+mkdir -p build-meson
+cd build-meson
+(meson --default-library static --buildtype=release -Dc_args=-O3 --prefix ${PREFIX_ARG} || meson --reconfigure)
+ninja install -v
+cd ../../..
 
-(mkdir -p modules/pb-layout/build-meson && cd modules/pb-layout/build-meson && (meson --default-library static --buildtype=release -Dc_args=-O3 --prefix ${PREFIX_ARG} -Db_coverage=false -Db_sanitize=none -Dtests=false || meson --reconfigure) && ninja install -v)
+cd modules/pb-layout
+meson subprojects update
+mkdir -p build-meson
+cd build-meson
+(meson --default-library static --buildtype=release -Dc_args=-O3 --prefix ${PREFIX_ARG} -Db_coverage=false -Db_sanitize=none -Dtests=false || meson --reconfigure)
+ninja install -v
+cd ../../..
 
 #(mkdir -p modules/racon/build-meson && cd modules/racon/build-meson && (meson --default-library static --buildtype=release -Dc_args=-O3 --prefix ${PREFIX_ARG} || meson --reconfigure) && ninja install -v)
 
@@ -73,6 +91,8 @@ cp -fL etc/ipa.snakefile pbipa/etc/
 
 find pbipa/
 
-perl -pi -e "s/COMMIT=.*/COMMIT=' (commit ${REV})/" pbipa/bin/ipa2-task
+REV=$(git rev-parse HEAD)
+perl -pi -e "s/COMMIT=.*/COMMIT=' (commit ${REV})'/" pbipa/bin/ipa2-task
 
 tar cvfz pbipa.tar.gz pbipa
+sha256sum pbipa.tar.gz

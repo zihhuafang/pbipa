@@ -237,10 +237,6 @@ def run(args, config_fn):
     env.update(os.environ)
     subprocess.run(cmd, shell = True, env = env)
 
-    if unlock:
-        args.unlock = False
-        run(args, config_fn)
-
 
 def nearest_divisor(v, x):
     """

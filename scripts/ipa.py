@@ -382,9 +382,28 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assember
             sys.exit(2)
     return args
 
+def setup_logging(args):
+    level = logging.DEBUG if args.debug else logging.INFO
+    fmt='%(levelname)s: %(message)s'
+    logging.basicConfig(format=fmt, level=level)
+    if not hasattr(args, 'run_dir'):
+        return
+    if not args.run_dir:
+        msg = 'Specified empty run-dir'
+        raise RuntimeError(msg)
+    if not os.path.isdir(args.run_dir):
+        os.makedirs(args.run_dir)
+    fn = os.path.join(args.run_dir, 'ipa.log')
+    hdlr = logging.FileHandler(fn, mode='w')
+    hdlr.setFormatter(logging.Formatter(fmt))
+    LOG.addHandler(hdlr)
+
 def main(argv=sys.argv):
-    logging.basicConfig(format='%(levelname)s: %(message)s')
     args = parse_args(argv)
+    setup_logging(args)
+    # cmdline = shlex.join(sys.argv) # py3.8
+    cmdline = ' '.join(shlex.quote(arg) for arg in sys.argv)
+    LOG.info(cmdline)
     if args.debug:
         args.cmd(args)
     else:

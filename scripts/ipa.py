@@ -168,6 +168,10 @@ def run_local(args):
     run(args, config_fn)
 
 def run_dist(args):
+    if not args.cluster_args:
+        msg = 'Distributed mode requires --cluster string'
+        raise RuntimeError(msg)
+
     args.resume = True # always on for dist-mode
 
     normalize_args(args)
@@ -326,7 +330,7 @@ def add_common_options(parser, cmd='local'):
         assert cmd == 'dist'
         snake.add_argument('--resume', action='store_true',
                             help=argparse.SUPPRESS)
-        snake.add_argument('--cluster-args', type=str, default='echo "no defaults yet"',
+        snake.add_argument('--cluster-args', type=str, default='',
                             help='(Required) Pass this along to snakemake, for conveniently running in a compute cluster.')
 
 class HelpF(argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
@@ -382,9 +386,28 @@ https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assember
             sys.exit(2)
     return args
 
+def setup_logging(args):
+    level = logging.DEBUG if args.debug else logging.INFO
+    fmt='%(levelname)s: %(message)s'
+    logging.basicConfig(format=fmt, level=level)
+    if not hasattr(args, 'run_dir'):
+        return
+    if not args.run_dir:
+        msg = 'Specified empty run-dir'
+        raise RuntimeError(msg)
+    if not os.path.isdir(args.run_dir):
+        os.makedirs(args.run_dir)
+    fn = os.path.join(args.run_dir, 'ipa.log')
+    hdlr = logging.FileHandler(fn, mode='w')
+    hdlr.setFormatter(logging.Formatter(fmt))
+    LOG.addHandler(hdlr)
+
 def main(argv=sys.argv):
-    logging.basicConfig(format='%(levelname)s: %(message)s')
     args = parse_args(argv)
+    setup_logging(args)
+    # cmdline = shlex.join(sys.argv) # py3.8
+    cmdline = ' '.join(shlex.quote(arg) for arg in sys.argv)
+    LOG.info(cmdline)
     if args.debug:
         args.cmd(args)
     else:

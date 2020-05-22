@@ -38,7 +38,7 @@ case "${uname_out}" in
     MINGW*)     MACHINE=MinGw;;
     *)          MACHINE="UNKNOWN:${unameOut}"
 esac
-if [[ -v $IPA_QUIET ]]; then
+if [[ -n "${IPA_QUIET+set}" ]]; then
     echo "Machine name: '${MACHINE}'"
 fi
 
@@ -880,7 +880,7 @@ case $1 in
     ;;
 esac
 
-if [[ ! -v IPA_QUIET ]]; then
+if [[ ! -n "${IPA_QUIET+set}" ]]; then
     # For a task, print the environment.
     env | sort >&2
 fi

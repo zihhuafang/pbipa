@@ -51,12 +51,13 @@ def generate_fofn(args):
     abs_input_fns = [abspath(abs_dn, fn) for fn in input_fn]
 
     # Validate inputs.
-    exts = ['.fasta', '.fastq', '.bam', '.xml'] # TODO: Worry about abspath recursively?
+    exts = ['.fasta', '.fastq', '.bam', '.xml', '.fasta.gz', '.fastq.gz']
     for fn in abs_input_fns:
-        ext = os.path.splitext(fn)[1]
-        if ext not in exts:
-            msg = 'Found extension "{}" ({}). Reads must have one of the following extensions: {}'.format(
-                    ext, fn, exts)
+        for valid_ext in exts:
+            if fn.endswith(valid_ext):
+                break
+        else:
+            msg = f'Bad extension for "{os.path.basename(fn)}". Reads must have one of the following extensions: {exts}'
             raise RuntimeError(msg)
 
     # Write FOFN.

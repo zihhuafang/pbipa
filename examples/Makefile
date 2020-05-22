@@ -25,7 +25,7 @@ NJOBS?=2
 cluster_queue=sequel-farm
 cluster_cpu=-pe smp {params.num_threads}
 
-CLUSTER_ARGS=qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V
+CLUSTER_ARGS=qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V -N ipa.{rule}
 
 .PHONY: snake qsub wdl link check logenv clean
 

@@ -36,13 +36,13 @@ pip-packages:
 	pip3 install --user --no-index --find-links=${WHEELHOUSE} networkx pytest snakemake
 
 modules/pancake/build/src/pancake: modules/pancake/README.md
-	cd modules/pancake && make all
+	cd modules/pancake && mkdir -p build && (bash scripts/ci/configure_with_fallback.sh || (cd build && meson --reconfigure)) && ninja -C build -v
 
 modules/falconc/src/falconc: modules/falconc/readme.md
 	cd modules/falconc/ && make
 
 modules/nighthawk/build/src/nighthawk: modules/nighthawk/README.md
-	cd modules/nighthawk && mkdir -p build && cd build && (meson ../ || meson --reconfigure) && ninja
+	cd modules/nighthawk && mkdir -p build && (bash scripts/ci/configure_with_fallback.sh || (cd build && meson --reconfigure)) && ninja -C build -v
 
 modules/racon/build-meson/racon: modules/racon/README.md
 	cd modules/racon && make meson
@@ -51,7 +51,7 @@ modules/pbmm2/build/src/pbmm2: modules/pbmm2/README.md
 	cd modules/pbmm2 && meson   --buildtype release --default-library shared --libdir lib --unity off --prefix /usr/local -Db_coverage=false -Db_sanitize=none -Dtests=false build . && ninja -C build -v
 
 modules/pb-layout/build/src/pblayout: modules/pb-layout/README.md
-	cd modules/pb-layout && make conf build
+	cd modules/pb-layout && mkdir -p build && (bash scripts/ci/configure_with_fallback.sh || (cd build && meson --reconfigure)) && ninja -C build -v
 
 ###########################
 ### Update the modules. ###

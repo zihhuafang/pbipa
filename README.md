@@ -1,5 +1,7 @@
 # IPA HiFi Genome Assembler
 
+<h1 align="center"><img width="512px" src="doc/IPA-logo-3.png"/></h1>
+
 ## Description
 
 This repo contains the implementation of the IPA HiFi Genome Assembler.
@@ -14,157 +16,128 @@ It's currently implemented as a Snakemake workflow (`workflow/ipa.snakefile`) an
 
 For more info: https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
 
-## Installation
 
-Installation should be simple, considering that majority of the code is in C++ and Nim.
+## Installation from Bioconda
+IPA is available via Bioconda:
+```
+conda create -n ipa
+conda activate ipa
+conda install pbipa
+```
+IPA requires python 3.7+. Please use miniconda3, not miniconda2. We currently only support Linux 64-bit, not MacOS or Linux 32-bit.
 
-# The `smrttools/incremental` here is only used to provide the Networkx Python library for `ovlp_to_graph` and `graph_to_contig`. If those are available locally on your machine,
-# the `module load...` line can be omitted.
+## Usage examples
+IPA can be run using the `ipa` executable. The runner contains two subtools:
+- `ipa local` - Running a local job on the current machine.
+- `ipa dist` - Running the assembly on the cluster.
 
-### Compilation on PacBio clusters
+Simplest example to run a phased assembly with polishing on a local machine looks like this:
 ```
-git clone ssh://git@bitbucket.nanofluidics.com:7999/sat/ipa2.git
-cd ipa2
-module purge
-source module.sh
-source env.sh
-bash build_from_source.sh
-```
-The `module.sh` file contains all tools required for compilation, including `smrttools/incremental` which contains the NetworkX Python library.
-The `build_from_source.sh` will run a small example automatically after the compilation is done.
-
-### Compilation on a personal machine
-```
-git clone ssh://git@bitbucket.nanofluidics.com:7999/sat/ipa2.git
-cd ipa2
-source env.sh
-make
-```
-This requires the following dependencies to be installed:
-- GCC>=8
-- NetworkX Python module
-- Snakemake Python module
-- Boost
-- Nim
-- Samtools
-
-### Example test run
-Using the Snakemake workflow:
-```
-cd examples/ivan-200k-t1/
-make snake
+ipa local -i <myreads.fasta>
 ```
 
-Using the WDL workflow (this requires that the `modules/pbpipeline-resources` module is cloned):
+Specifying custom number of threads and number of parallel jobs can provide more optimal performance on your machine:
 ```
-cd examples/ivan-200k-t1/
-make wdl
+ipa local --nthreads 20 --njobs 4 -i <myreads.fasta>
 ```
+Note: this will use 80 CPUs for parallel jobs like overlapping, phasing and polishing (given that the input dataset is large enough).
 
-## Usage
+Example of a distributed run on a cluster using SGE:
+```
+mkdir -p <out_dir>/qsub_log
+ipa dist -i <myreads.fastq> --run-dir <out_dir> --cluster-args "qsub -S /bin/bash -N ipa -cwd -q default -pe smp {params.num_threads} -e qsub_log/ -o qsub_log/ -V"
+```
+Note: `--cluster-args` are passed directly to Snakemake. For a custom queue, please edit that string. Also, for other types of cluster environment, please consult the Snakemake documentation.
 
-One file is required to run IPA:
-These files are needed to run IPA:
+More details can be found here: https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assembler
+
+## Advanced Usage
+
+Only one file (config) is required to run IPA:
 - (mandatory) Config file: `config.json`.
 - (optional) Input FOFN in case the config points to it: `input.fofn`.
-- (optional) Makefile which wraps running of the tool. This can be copied from `examples/ecoli-k12-2019_03_30/Makefile`.
 
-The Makefile can be useful so that issuing the Snakemake/Cromwell jobs can be done with a simple command like `make snake` or `make wdl`.
+Once the config file is specified, the workflow can be run via Snakemake directly, similar to this:
+```
+snakemake -p -j 1 -d RUN -s <ipa.snakefile> --configfile config.json --config MAKEDIR=.. -- finish
+```
+
+Additionally, the `ipa` runner tool provides an option `--only-print` which will not run the workflow, but instead only prints the Snakemake run command to the user. It also generates the config file from the command line options.
+For example:
+```
+$ ipa local -i input.fofn --only-print
+...
+python3 -m snakemake -j 4 -d RUN -p -s /mnt/software/i/ipa/develop/etc/ipa.snakefile --configfile RUN/config.yaml --reason
+```
+
+The user can then copy this line and run Snakemake manually.
+
+The same option is available in the cluster runner subtool `ipa dist`:
+```
+$ ipa dist -i input.fofn --run-dir RUN --cluster-args 'qsub -S /bin/bash -N ipa -cwd -q sequel-farm -pe smp {params.num_threads} -e qsub_log/ -o qsub_log/ -V' --nthreads 24 --njobs 40 --nshards 40 --only-print
+...
+python3 -m snakemake -j 40 -d RUN -p -s /mnt/software/i/ipa/develop/etc/ipa.snakefile --configfile RUN/config.yaml --reason --cluster 'qsub -S /bin/bash -N ipa -cwd -q sequel-farm -pe smp {params.num_threads} -e qsub_log/ -o qsub_log/ -V' --latency-wait 60 --rerun-incomplete
+```
 
 ### Config file
+Config can be specified either in JSON or YAML formats (as supported by Snakemake).
+
 The structure of `config.json` is given here:
 ```
 {
-    "ipa2.reads_fn": "input.fofn",
-    "ipa2.genome_size": 0,
-    "ipa2.coverage": 0,
-    "ipa2.advanced_options": "",
-    "ipa2.polish_run": 0,
-    "ipa2.phase_run": 1,
-    "ipa2.nproc": 8
+    "reads_fn": "input.fofn",
+    "genome_size": 0,
+    "coverage": 0,
+    "advanced_options": "",
+    "polish_run": 1,
+    "phase_run": 1,
+    "nproc": 8,
+    "max_nchunks": 40,
+    "tmp_dir": "/tmp"
 }
 ```
 
 Explanation of each parameter:
-- `ipa2.reads_fn`: Can be a FOFN, FASTA, FASTQ, BAM or XML. Also, gzipped versions of FASTA and FASTQ are available.
-- `ipa2.genome_size`: Used for downsampling in combination with `coverage`. If `genome_size * coverage <=0` downsampling is turned off.
-- `ipa2.coverage`: Used for downsampling in combination with `genome_size`. If `genome_size * coverage <=0` downsampling is turned off.
-- `ipa2.advanced_options`: A single line listing advanced options in the form of `key = value` pairs, separated with `;`.
-- `ipa2.polish_run`: Polishing will be applied if the value of this parameter is equal to `1`.
-- `ipa2.phase_run`: Phasing will be applied if the value of this parameter is equal to `1`.
-- `ipa2.nproc`: Number of threads to use on each compute node.
+- `reads_fn`: Can be a FOFN, FASTA, FASTQ, BAM or XML. Also, gzipped versions of FASTA and FASTQ are available.
+- `genome_size`: Used for downsampling in combination with `coverage`. If `genome_size * coverage <=0` downsampling is turned off.
+- `coverage`: Used for downsampling in combination with `genome_size`. If `genome_size * coverage <=0` downsampling is turned off.
+- `advanced_options`: A single line listing advanced options in the form of `key = value` pairs, separated with `;`.
+- `polish_run`: Polishing will be applied if the value of this parameter is equal to `1`.
+- `phase_run`: Phasing will be applied if the value of this parameter is equal to `1`.
+- `nproc`: Number of threads to use on each compute node.
+- `max_nchunks`: Parallel tasks will be groupped into at most this many chunks. If there is more than one task per chunk, they are executed linearly. Each chunk is executed in parallel. Useful for throttling job submissions.
+- `tmp_dir`: Temporary directory which will be used for some disk-based operations, like sorting.
 
 An example config with a custom `ipa2.advanced_options` string:
 ```
 {
-    "ipa2.reads_fn": "input.fofn",
-    "ipa2.genome_size": 0,
-    "ipa2.coverage": 0,
-    "ipa2.advanced_options": "config_seeddb_opt = -k 30 -w 80 --space 1; config_block_size = 2048; config_phasing_piles = 20000",
-    "ipa2.polish_run": 1,
-    "ipa2.phase_run": 1,
-    "ipa2.nproc": 8
+    "reads_fn": "input.fofn",
+    "genome_size": 0,
+    "coverage": 0,
+    "advanced_options": "config_seeddb_opt = -k 30 -w 80 --space 1; config_block_size = 2048; config_phasing_piles = 20000",
+    "polish_run": 1,
+    "phase_run": 1,
+    "nproc": 8
 }
 ```
 
 The list of all options that can be modified via the `advanced_options` string and their defaults:
 ```
-config_autocomp_max_cov = 1
-config_block_size = 4096
-config_coverage = 0
-config_existing_db_prefix = ''
-config_genome_size = 0
-config_ovl_filter_opt = '--max-diff 80 --max-cov 100 --min-cov 1 --bestn 10 --min-len 4000 --gapFilt --minDepth 4'
-config_ovl_min_idt = 98
-config_ovl_min_len = 1000
-config_ovl_opt = ''
-config_phase_run = 1
-config_phasing_opt = ''
-config_phasing_piles = 10000
-config_polish_run = 1
-config_seeddb_opt = '-k 30 -w 80 --space 1'
-config_seqdb_opt = '--compression 1'
-config_use_seq_ids = 1
-```
-
-### Snakemake run on a local machine using the Makefile:
-```
-/usr/bin/time make snake 2>&1 | tee log.tee
-```
-
-### Snakemake run on a cluster using the Makefile:
-```
-/usr/bin/time make qsub 2>&1 | tee log.tee
-```
-The exact cluster config options can be modified in the Makefile script:
-```
-cluster_S=/bin/bash
-cluster_N=ipa
-cluster_P=-cwd
-cluster_Q=default
-cluster_E=qsub_log.stderr
-cluster_O=qsub_log.stdout
-cluster_CPU=-pe smp 8
-cluster_JOBS=10
-```
-
-To modify the number of CPUs used by each job, two settings need to be set:
-- `cluster_CPU` in the Makefile
-- `ipa2.nproc` in he config
-
-The number of jobs run simultaneously can be set with `cluster_JOBS`.
-
-### Snakemake run on a local machine
-The command line listed below can be used to run the Snakemake workflow.
-```
-WF_SNAKEMAKE=<path_to_the_ipa.snakefile>
-CWD=${PWD}/RUN snakemake -p -j 1 -d RUN -s ${WF_SNAKEMAKE} --configfile config.json --config MAKEDIR=.. -- finish
-```
-
-#### Cromwell run on a local machine
-The command line listed below can be used to run the Snakemake workflow.
-```
-CROMWELL=<path_to_cromwell.jar_file>
-WF_CROMWELL=<path_to_ipa.wdl_file>
-java -jar ${CROMWELL} run --inputs config.json ${WF_CROMWELL} 2>&1 | tee log.wdl.tee
+config_autocomp_max_cov=1
+config_block_size=4096
+config_coverage=0
+config_existing_db_prefix=
+config_genome_size=0
+config_ovl_filter_opt=--max-diff 80 --max-cov 100 --min-cov 2 --bestn 10 --min-len 4000 --gapFilt --minDepth 4 --idt-stage2 98
+config_ovl_min_idt=98
+config_ovl_min_len=1000
+config_ovl_opt=--one-hit-per-target --min-idt 96
+config_phase_run=1
+config_phasing_opt=
+config_phasing_split_opt=--split-type noverlaps --limit 3000000
+config_polish_run=1
+config_seeddb_opt=-k 30 -w 80 --space 1
+config_seqdb_opt=--compression 1
+config_use_hpc=0
+config_use_seq_ids=1
 ```

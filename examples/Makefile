@@ -39,17 +39,17 @@ local:
 	/usr/bin/time ipa local --njobs ${NJOBS} --nthreads 4 --run-dir RUN --verbose --resume -i input.fofn
 
 dist:
-	mkdir -p RUN/qsub_log
+	#mkdir -p RUN/qsub_log
 	${MAKE} logenv
 	/usr/bin/time ipa dist --njobs ${NJOBS} --nthreads 4 --run-dir RUN --verbose --cluster "${CLUSTER_ARGS}" -i input.fofn 2>&1 | tee RUN.log.${TIMESTAMP}.snakemake.qsub.tee
 
 qsub:
-	mkdir -p RUN/qsub_log
+	#mkdir -p RUN/qsub_log
 	${MAKE} logenv
 	CWD=${PWD}/RUN /usr/bin/time snakemake --rerun-incomplete -p -d RUN -s ${WF_SNAKEMAKE} -j ${NJOBS} --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 
 unlock:
-	mkdir -p RUN/qsub_log
+	#mkdir -p RUN/qsub_log
 	${MAKE} logenv
 	CWD=${PWD}/RUN /usr/bin/time snakemake --unlock -p -d RUN -s ${WF_SNAKEMAKE} -j ${NJOBS} --cluster "qsub -S ${cluster_shell} ${cluster_pwd} -q ${cluster_queue} ${cluster_cpu} -e ${cluster_stderr} -o ${cluster_stdout} -V" --verbose -p --latency-wait 60 --configfile ${CONFIG_FN} -- finish 2>&1 | tee log.${TIMESTAMP}.snakemake.qsub.tee
 

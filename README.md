@@ -14,7 +14,7 @@ It's currently implemented as a Snakemake workflow (`workflow/ipa.snakefile`) an
 6. Read tracking for read-to-contig assignment.
 7. Polishing using Racon.
 
-For more info: https://github.com/PacificBiosciences/pbbioconda/wiki/IPA-Documentation
+For more info: https://github.com/PacificBiosciences/pbbioconda/wiki/Improved-Phased-Assembler
 
 
 ## Installation from Bioconda

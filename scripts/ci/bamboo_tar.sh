@@ -95,4 +95,5 @@ REV=$(git rev-parse HEAD)
 perl -pi -e "s/COMMIT=.*/COMMIT=' (commit ${REV})'/" pbipa/bin/ipa2-task
 
 tar cvfz pbipa.tar.gz pbipa
+bash -vex scripts/ci/validate_tar.sh
 sha256sum pbipa.tar.gz

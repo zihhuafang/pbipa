@@ -277,7 +277,7 @@ def get_version():
         LOG.exception('Try "pip3 install --user networkx snakemake"')
 
     return """
-ipa (wrapper) version=1.0.2
+ipa (wrapper) version=1.0.3
 """
 
 def add_common_options(parser, cmd='local'):

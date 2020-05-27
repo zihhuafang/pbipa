@@ -1,6 +1,6 @@
 [submodule "modules/falconc"]
 	path = modules/falconc
-	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/falconc.git
+	url = ssh://git@bitbucket.pacificbiosciences.com:7999/sat/falconc.git
 	branch = develop
 	ignore = all
 [submodule "modules/racon"]
@@ -10,26 +10,26 @@
 	ignore = all
 [submodule "modules/pancake"]
 	path = modules/pancake
-	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pancake.git
+	url = ssh://git@bitbucket.pacificbiosciences.com:7999/sat/pancake.git
 	branch = develop
 	ignore = all
 [submodule "modules/nighthawk"]
 	path = modules/nighthawk
-	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/nighthawk.git
+	url = ssh://git@bitbucket.pacificbiosciences.com:7999/sat/nighthawk.git
 	branch = develop
 	ignore = all
 [submodule "modules/pb-layout"]
 	path = modules/pb-layout
-	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pb-layout.git
+	url = ssh://git@bitbucket.pacificbiosciences.com:7999/sat/pb-layout.git
 	branch = develop
 	ignore = all
 [submodule "modules/pbpipeline-resources"]
 	path = modules/pbpipeline-resources
-	url = ssh://git@bitbucket.nanofluidics.com:7999/sl/pbpipeline-resources.git
+	url = ssh://git@bitbucket.pacificbiosciences.com:7999/sl/pbpipeline-resources.git
 	branch = develop
 	ignore = all
 [submodule "modules/pbmm2"]
 	path = modules/pbmm2
-	url = ssh://git@bitbucket.nanofluidics.com:7999/sat/pbmm2.git
+	url = ssh://git@bitbucket.pacificbiosciences.com:7999/sat/pbmm2.git
 	branch = develop
 	ignore = all

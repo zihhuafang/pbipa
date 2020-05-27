@@ -68,8 +68,10 @@ def generate_fofn(args):
     args.input_fn = reads_fn
 
 def normalize_args(args):
+    """Except nthreads and njobs, which have different defaults
+    for local versus dist.
+    """
     args.run_dir = os.path.normpath(args.run_dir)
-    args.nthreads = NCPUS // args.njobs if not args.nthreads else args.nthreads
     args.phase_run = 1 if not args.no_phase else 0
     args.polish_run = 1 if not args.no_polish else 0
     args.cluster_args = getattr(args, 'cluster_args', '')
@@ -78,13 +80,6 @@ def normalize_args(args):
 def validate(args):
     """Possibly create run_dir.
     """
-    if args.nthreads*args.njobs > NCPUS:
-        msg = f"""You may have over-subscribed your local machine.
-We have detected only {NCPUS} CPUs, but you have assumed {args.njobs*args.nthreads} are available.
-(njobs*nthreads)==({args.njobs}*{args.nthreads})=={args.njobs*args.nthreads} > {NCPUS}
-"""
-        LOG.warning(msg)
-
     snake_dn = os.path.join(args.run_dir, '.snakemake')
     if os.path.isdir(snake_dn):
         if not args.resume:
@@ -159,10 +154,63 @@ def write_config(args):
 def run_validate(args):
     check_dependencies()
 
+def choose_local_defaults(args, ncpus):
+    """Update the fields of {args}, based on ncpus.
+    Some or all might be {None}.
+    """
+    if args.njobs == 0 and args.nthreads == 0:
+        msg = f"""
+Please specify both '--njobs' and '--nthreads'.
+"""
+        raise RuntimeError(msg)
+
+    if args.njobs > 0 and args.nthreads > 0:
+        # Accept the choices of the user.
+        if args.nthreads*args.njobs > ncpus:
+            msg = f"""You may have over-subscribed your local machine.
+We have detected only {ncpus} CPUs, but you have assumed {args.njobs*args.nthreads} are available.
+(njobs*nthreads)==({args.njobs}*{args.nthreads})=={args.njobs*args.nthreads} > {ncpus}
+"""
+            LOG.warning(msg)
+        return
+
+    if args.njobs > ncpus or args.nthreads > ncpus:
+        msg = f"""You have exceeded the number of CPUs in your machine.
+We have detected only {ncpus} CPUs, but you have assumed {args.njobs*args.nthreads} are available.
+(njobs*nthreads)==({args.njobs}*{args.nthreads})=={args.njobs*args.nthreads} > {ncpus}
+"""
+        raise RuntimeError(msg)
+    elif args.njobs == 0 and args.nthreads != 0:
+        assert type(args.nthreads) == int
+        assert args.nthreads > 0
+        args.njobs = ncpus // args.nthreads
+    elif args.njobs != 0 and args.nthreads == 0:
+        assert type(args.njobs) == int
+        assert args.njobs > 0
+        args.nthreads = ncpus // args.njobs
+    else:
+        # Not actually possible.
+        raise AssertionError('not possible')
+
+    if args.njobs * args.nthreads > ncpus:
+        # Not actually possible, since we round down on division.
+        msg = f"""You may have over-subscribed your local machine.
+We have detected only {ncpus} CPUs, but you have assumed {args.njobs*args.nthreads} are available.
+(njobs*nthreads)==({args.njobs}*{args.nthreads})=={args.njobs*args.nthreads} > {ncpus}
+"""
+        raise RuntimeError(msg)
+    elif args.njobs * args.nthreads < ncpus:
+        msg = f"""Because you choose a value that does not divide the number of CPUs, you are under-utilizing your local machine.
+We have detected {ncpus} CPUs, but you have assumed {args.njobs*args.nthreads} are available.
+(njobs*nthreads)==({args.njobs}*{args.nthreads})=={args.njobs*args.nthreads} < {ncpus}
+"""
+        raise RuntimeError(msg)
+
 def run_local(args):
     args.cluster_args = None # ignored in local-mode
 
     normalize_args(args)
+    choose_local_defaults(args, ncpus=NCPUS)
     validate(args)
     generate_fofn(args)
     config_fn = write_config(args)
@@ -243,32 +291,6 @@ def run(args, config_fn):
     subprocess.run(cmd, shell = True, env = env)
 
 
-def nearest_divisor(v, x):
-    """
-    >>> nearest_divisor(24, 4.9)
-    4
-    >>> nearest_divisor(25, 4.9)
-    5
-    """
-    higher = int(math.ceil(x))
-    lower = int(math.floor(x))
-    if higher - x > x - lower:
-        # Start with lower.
-        curr = lower
-        sense = 1
-    else:
-        # Start with higher.
-        curr = higher
-        sense = -1
-    delta = 1
-    while curr > 0 and curr <= v:
-        if v % curr == 0:
-            return curr
-        curr += sense*delta
-        delta += 1
-        sense *= -1
-    raise RuntimeError(f'No divisor found for {v, x}')
-
 def get_version():
     try:
         import networkx
@@ -277,13 +299,10 @@ def get_version():
         LOG.exception('Try "pip3 install --user networkx snakemake"')
 
     return """
-ipa (wrapper) version=1.0.2
+ipa (wrapper) version=1.0.3
 """
 
 def add_common_options(parser, cmd='local'):
-    default_njobs = nearest_divisor(NCPUS, math.log2(NCPUS))
-    default_nthreads = NCPUS // default_njobs
-
     parser.add_argument('--input-fn', '-i', type=str, action='append', default=[],
             help='(Required.) Input reads in FASTA, FASTQ, BAM, XML or FOFN formats. Repeat "-i fn1 -i fn2" for multiple inputs, or use a "file-of-filenames", e.g. "-i foo.fofn".')
 
@@ -301,8 +320,8 @@ def add_common_options(parser, cmd='local'):
 
     wf = parser.add_argument_group('Workflow options') #, 'These impact how the tasks are run.')
     wf.add_argument('--nthreads', type=int, default=0,
-                        help='Maximum number of threads to use per job. If 0, then use ncpus/njobs.')
-    wf.add_argument('--nshards', type=int, default=default_njobs,
+                        help='(Required) Maximum number of threads to use per job. (Applies to both remote and local tasks.)')
+    wf.add_argument('--nshards', type=int, default=40,
                         help='Maximum number of parallel tasks to split work into (though the number of simultaneous jobs could be much lower).')
     wf.add_argument('--tmp-dir', type=str, default='/tmp',
                         help='Temporary directory for some disk based operations like sorting.')
@@ -310,8 +329,8 @@ def add_common_options(parser, cmd='local'):
             help='Extra logging for each task. (Show full env, e.g.)')
 
     snake = parser.add_argument_group('Snakemake options') #, 'These impact how snakemake is run.')
-    snake.add_argument('--njobs', type=int, default=default_njobs,
-                        help='Maximum number of simultaneous jobs, each running up to nthreads.')
+    snake.add_argument('--njobs', type=int, default=0,
+                        help='(Required) Maximum number of simultaneous jobs, each running up to nthreads.')
     snake.add_argument('--run-dir', type=str, default='./RUN',
                         help='Directory in which to run snakemake.')
     snake.add_argument('--target', type=str, default='',

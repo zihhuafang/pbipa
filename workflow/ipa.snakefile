@@ -27,6 +27,9 @@ NPROC_SERIAL = NPROC
 print(f'NPROC:{NPROC}')
 print(f'NPROC_SERIAL:{NPROC_SERIAL}')
 
+QSUB_LOG = 'qsub_log' # directory
+if not os.path.isdir(QSUB_LOG):
+    os.makedirs(QSUB_LOG)
 
 if not os.path.isabs(READS_FN):
     READS_FN = os.path.abspath(os.path.join(CWD, '..', READS_FN))
